@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Cấu hình môi trường chứa API Key
+.env
+
+# Kết quả chạy chạy test & benchmark
+results/
+
+# Các IDE cấu hình cá nhân
+.vscode/
+.idea/
+
+# Hệ điều hành
+Thumbs.db
+Desktop.ini

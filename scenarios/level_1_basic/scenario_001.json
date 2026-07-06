@@ -1,0 +1,39 @@
+{
+  "scenario_id": "scenario_001",
+  "scenario_name": "Single AGV - Simple Pickup and Delivery",
+  "level": 1,
+  "description": "Single AGV picks up a payload from Dock A and delivers it to Shelf B1 on the simple_warehouse map.",
+  "factory_layout": "simple_warehouse",
+
+  "agvs": [
+    {
+      "serial_number": "AGV_01",
+      "initial_position": { "x": 5.0, "y": 5.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    }
+  ],
+
+  "transport_requests": [
+    {
+      "request_id": "REQ_001",
+      "pickup_node": "DOCK_A",
+      "dropoff_node": "SHELF_B1",
+      "priority": 1,
+      "payload_type": "pallet",
+      "payload_weight_kg": 50.0
+    }
+  ],
+
+  "constraints": {
+    "max_time_seconds": 60,
+    "collision_tolerance": 1.5
+  },
+
+  "success_criteria": {
+    "all_requests_delivered": true,
+    "no_collisions": true,
+    "battery_above": 20.0
+  }
+}

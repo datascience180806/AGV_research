@@ -1,0 +1,7 @@
+paho-mqtt
+matplotlib
+tomli
+google-genai
+python-dotenv
+fastapi
+uvicorn

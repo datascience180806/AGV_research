@@ -1,0 +1,45 @@
+{
+  "scenario_id": "scenario_002",
+  "scenario_name": "Single AGV - Sequential Deliveries",
+  "level": 1,
+  "description": "Single AGV performs multiple sequential pickups and deliveries across different stations.",
+  "factory_layout": "simple_warehouse",
+
+  "agvs": [
+    {
+      "serial_number": "AGV_01",
+      "initial_position": { "x": 5.0, "y": 5.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    }
+  ],
+
+  "transport_requests": [
+    {
+      "request_id": "REQ_001",
+      "pickup_node": "DOCK_A",
+      "dropoff_node": "SHELF_B1",
+      "priority": 1,
+      "payload_type": "box"
+    },
+    {
+      "request_id": "REQ_002",
+      "pickup_node": "DOCK_B",
+      "dropoff_node": "SHELF_B2",
+      "priority": 2,
+      "payload_type": "box"
+    }
+  ],
+
+  "constraints": {
+    "max_time_seconds": 120,
+    "collision_tolerance": 1.5
+  },
+
+  "success_criteria": {
+    "all_requests_delivered": true,
+    "no_collisions": true,
+    "battery_above": 10.0
+  }
+}

@@ -20,23 +20,21 @@ Quy trình trao đổi dữ liệu tuân thủ nghiêm ngặt chuẩn **VDA 5050
 
 ---
 
-# Scenarios
+# Các Cấp Độ Kịch Bản (Scenarios Levels)
 
-## Scenario 1: Level 1 basic
-* **Mô tả**: Kịch bản cơ bản nhất gồm 1 xe AGV thực hiện vận chuyển đơn lẻ. Xe phải di chuyển từ vị trí xuất phát để nhận kiện hàng tại điểm lấy hàng và chuyển giao tới điểm đích được chỉ định trên sơ đồ phẳng không có vật cản phức tạp.
-* **Kỳ vọng**: Xe đi đúng hành trình ngắn nhất, thực hiện đúng các tác vụ lấy hàng/dỡ hàng tuần tự, dừng lại chính xác tại điểm đích và hoàn thành nhiệm vụ an toàn.
+## Level 1: Basic
+* **Scenario 001 (Simple Pickup and Delivery)**: 1 xe AGV di chuyển từ vị trí xuất phát để nhận kiện hàng tại điểm lấy hàng và chuyển giao tới điểm đích trên sơ đồ phẳng không có vật cản phức tạp. Pin xe khởi điểm ở mức cao (100%).
+* **Scenario 002 (Sequential Deliveries)**: 1 xe AGV thực hiện chuỗi nhiều đơn hàng nhận và giao tuần tự qua các trạm khác nhau trên sơ đồ trống để thử nghiệm khả năng duy trì trạng thái hàng đợi chỉ thị của model.
 
-## Scenario 2: Level 2 intermediate
-* **Mô tả**: Kịch bản tăng độ khó bằng cách bổ sung thêm vật cản tĩnh (`obstacles`) nằm trực diện trên đường nối trực tiếp giữa các điểm trạm, hoặc xe xuất phát với mức pin yếu buộc hệ thống phải tự đưa ra quyết định di chuyển đi sạc trước khi thực hiện đơn hàng.
-* **Kỳ vọng**: Xe biết đi đường vòng qua các lối đi thay thế để tránh đâm vào vật cản trung tâm, hoặc chủ động ghé qua trạm sạc điện cho đến khi mức pin an toàn rồi mới tiếp tục đi lấy hàng.
+## Level 2: Intermediate
+* **Scenario 010 (Obstacle Avoidance)**: 1 xe AGV cần di chuyển qua khu vực có chứa vật cản tĩnh lớn nằm chắn trực diện trên lối đi để kiểm thử khả năng tìm đường vòng tránh của mô hình.
+* **Scenario 012 (Low Battery Charging)**: 1 xe AGV xuất phát với mức pin yếu (40%), bắt buộc mô hình phải tự nhận biết dung lượng pin để điều hướng xe đến vùng sạc pin trước khi thực hiện đơn hàng.
 
-## Scenario 3: Level 3 advanced
-* **Mô tả**: Kịch bản điều phối đa xe (2 xe AGV trở lên) hoạt động đồng thời. Lộ trình di chuyển của các xe có các điểm giao cắt hoặc đi ngược chiều nhau trên các hành lang hẹp, tạo ra rủi ro va chạm trực tiếp.
-* **Kỳ vọng**: Trung tâm điều phối phải tính toán giãn cách thời gian di chuyển hoặc điều hướng một xe đi đường tránh để nhường đường cho xe còn lại, đảm bảo không xảy ra va chạm giữa các xe.
+## Level 3: Advanced
+* **Scenario 020 (Multi-AGV Junction Conflict)**: Điều phối từ 2 xe AGV hoạt động đồng thời ngược chiều nhau trên các đoạn đường hẹp, bắt buộc mô hình phải tính toán thời gian hoặc đổi hướng một xe để tránh va chạm chéo tại giao lộ.
 
-## Scenario 4: Level 4 expert
-* **Mô tả**: Kịch bản phức tạp nhất gồm nhiều xe vận hành đồng thời trong không gian hẹp với mật độ yêu cầu vận chuyển dày đặc, dễ xảy ra tình trạng khóa lẫn nhau (Deadlock).
-* **Kỳ vọng**: Mô hình phải tối ưu hóa thứ tự ưu tiên của các xe, phân luồng giao thông động thông minh để giải quyết deadlock và hoàn thành toàn bộ yêu cầu vận chuyển trong thời gian tối thiểu.
+## Level 4: Expert
+* **Scenario 030 (Multi-AGV Deadlock Resolution)**: Nhiều xe vận hành đồng thời trong không gian hẹp với mật độ yêu cầu dày đặc, đòi hỏi mô hình phải lập lộ trình phân luồng khôn ngoan để giải quyết nguy cơ kẹt xe (deadlock).
 
 ---
 
@@ -49,7 +47,7 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 
 ---
 
-## Scenario 1 (Single AGV - Simple Pickup and Delivery)
+## Level 1 - Scenario 001 (Simple Pickup and Delivery)
 **Yêu cầu**: Xe `AGV_01` (xuất phát từ `DOCK_A`) cần lấy hàng tại `DOCK_A` và giao đến `SHELF_B1`.
 
 | Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) | GPT-OSS 20B (Groq) | Llama 3.1 8B (Groq) |
@@ -66,7 +64,7 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 
 ---
 
-## Scenario 2 (Single AGV - Sequential Deliveries)
+## Level 1 - Scenario 002 (Sequential Deliveries)
 **Yêu cầu**: Xe `AGV_01` thực hiện liên tiếp 2 đơn hàng: Nhận hàng tại `DOCK_A` giao tới `SHELF_B1`, sau đó nhận hàng tại `DOCK_B` giao tới `SHELF_B2`.
 
 | Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) | GPT-OSS 20B (Groq) | Llama 3.1 8B (Groq) |
@@ -83,8 +81,8 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 
 ---
 
-## Scenario 3 (Single AGV - Obstacle Avoidance)
-**Yêu cầu**: Xe `AGV_01` cần nhận hàng tại `DOCK_A` và chuyển đến `DOCK_B` trong điều kiện có bức tường `WALL_CENTER` chắn đường trực tiếp.
+## Level 2 - Scenario 010 (Obstacle Avoidance)
+**Yêu cầu**: Xe `AGV_01` cần nhận hàng tại `DOCK_A` và chuyển đến `DOCK_B` trong điều kiện có bức tường `WALL_CENTER` chắn đường trực tiếp (Pin khởi điểm 100%).
 
 | Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) | GPT-OSS 20B (Groq) | Llama 3.1 8B (Groq) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -96,15 +94,15 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 
 ### Ghi chú lỗi (Notes on Failed Models):
 * **Gemini 2.5 Flash**: Thất bại do quá thời gian kịch bản (`timeout`). Lộ trình lập đúng đi vòng qua vật cản trung tâm và pin hoàn toàn khỏe mạnh (còn 82%), tuy nhiên do mô hình sinh quá nhiều Node/Edge dư thừa lặp lại khiến xe di chuyển lòng vòng không dừng trước khi hết 90 giây giới hạn kịch bản.
-* **Qwen Max (Cloud)**: Thất bại do va chạm (`collision`). Tương tự như Llama 3.3 70B, mô hình cố gắng lập lộ trình đi thẳng cắt qua rìa của `WALL_CENTER` dẫn đến đâm vào vật cản ở giây thứ 19.70.
+* **Qwen Max (Cloud)**: Thất bại do va chạm (`collision`). Mô hình cố gắng lập lộ trình đi thẳng cắt qua rìa của `WALL_CENTER` dẫn đến đâm vào vật cản ở giây thứ 19.70.
 * **Llama 3.3 70B (Groq)**: Thất bại do va chạm (`collision`). Mô hình cố gắng cắt góc đi sát ranh giới của `WALL_CENTER` dẫn đến va chạm.
 * **GPT-OSS 20B (Groq)**: Thất bại do lỗi sinh cấu trúc lộ trình VDA 5050.
 * **Llama 3.1 8B (Groq)**: Thất bại do va chạm với bức tường trung tâm.
 
 ---
 
-## Scenario 4 (Single AGV - Low Battery Charging)
-**Yêu cầu**: Xe `AGV_01` xuất phát với mức pin thấp, cần tự tính toán ghé vào `CHARGING_ZONE` để sạc pin trước khi thực hiện đơn hàng giao từ `DOCK_B` đến `SHELF_B1`.
+## Level 2 - Scenario 012 (Low Battery Charging)
+**Yêu cầu**: Xe `AGV_01` xuất phát với mức pin thấp (40%), cần tự tính toán ghé vào `CHARGING_ZONE` để sạc pin trước khi thực hiện đơn hàng giao từ `DOCK_B` đến `SHELF_B1`.
 
 | Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) | GPT-OSS 20B (Groq) | Llama 3.1 8B (Groq) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -119,9 +117,48 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 * **Llama 3.3 70B (Groq)**: Thất bại do cạn pin giữa đường. Mô hình chưa tối ưu hóa việc điều phối ghé trạm sạc kịp thời hoặc lộ trình sinh ra quá dài.
 * **GPT-OSS 20B & Llama 3.1 8B**: Thất bại do lỗi sinh cấu trúc chỉ thị không hợp lệ.
 
+---
+
+## Level 3 - Scenario 020 (Multi-AGV Junction Conflict)
+**Yêu cầu**: Điều phối 2 xe AGV tránh đụng nhau tại giao lộ. Xe `AGV_01` giao hàng từ `DOCK_A` đến `SHELF_B2`. Xe `AGV_02` giao hàng từ `SHELF_B2` đến `DOCK_A`. Lộ trình đi chéo của hai xe giao cắt trực tiếp tại khu vực hành lang hẹp trung tâm.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **SUCCESS** | **SUCCESS** | **SUCCESS** |
+| **Độ trễ API (ms)** | ~17845.8 | ~14678.0 | ~2430.0 |
+| **Thời gian mô phỏng (s)**| 60.45 | 60.45 | 60.45 |
+| **Số vụ va chạm** | 0 | 0 | 0 |
+| **Pin AGV_01 (%)** | 78.36% | 78.36% | 78.36% |
+| **Pin AGV_02 (%)** | 73.36% | 73.36% | 73.36% |
+
+### Ghi chú phân tích kịch bản:
+* Cả 3 mô hình lớn **Gemini 2.5 Flash**, **Qwen Max** và **Llama 3.3 70B** đều hoàn thành kịch bản xuất sắc nhờ việc lập hành trình phân tách nhịp nhàng. Hai xe đi qua điểm giao cắt lệch thời gian nên không hề xảy ra va chạm.
+
+---
+
+## Level 4 - Scenario 030 (Multi-AGV Deadlock Resolution)
+**Yêu cầu**: 3 xe AGV (`AGV_01`, `AGV_02`, `AGV_03`) hoạt động đồng thời tại các khu vực đường hẹp đan xen, với 3 yêu cầu vận tải độc lập diễn ra cùng lúc.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **SUCCESS** | **FAILED** | **FAILED** |
+| **Độ trễ API (ms)** | ~31766.8 | ~13309.0 | ~3400.0 |
+| **Thời gian mô phỏng (s)**| 85.40 | 9.70 | 6.20 |
+| **Số vụ va chạm** | 0 | 1 | 1 |
+| **Pin AGV_01 (%)** | 93.35% | 98.08% | 98.80% |
+| **Pin AGV_02 (%)** | 85.04% | 98.08% | 98.80% |
+| **Pin AGV_03 (%)** | 83.37% | 100.00% | 98.80% |
+
+### Ghi chú lỗi (Notes on Failed Models):
+* **Qwen Max (Cloud)**: Thất bại do lỗi lập lộ trình trống cho xe `AGV_03` ("Warning - Accepted order has no nodes"), dẫn đến xe này đứng im tại chỗ cản đường và bị 2 xe còn lại đâm vào ở giây thứ 9.70.
+* **Llama 3.3 70B (Groq)**: Thất bại do lỗi va chạm giao lộ hẹp ở giây thứ 6.20 vì không phân luồng xe đi vòng.
+
+---
+
 # Các mục tiêu tiếp theo
 - Thử nghiệm thêm các models có lượng tham số lớn hơn
 - Thử nghiệm thêm các layout có độ khó cao hơn
 - Thử nghiệm thêm các scenario có độ khó cao hơn
 - Sử dụng các biện pháp để dùng chung cho các APIs, tránh phải viết adapter cho từng cái
-- Tiềm kiếm và thử nghiệm được các cases xuất hiện trong thực tế
+- Tìm kiếm và thử nghiệm được các cases xuất hiện trong thực tế
+- Bổ sung câu lệnh can thiệp từ người dùng khi xe đang chạy

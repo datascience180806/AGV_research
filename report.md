@@ -62,6 +62,7 @@ Quy trình trao đổi dữ liệu tuân thủ nghiêm ngặt chuẩn **VDA 5050
 ## Level 2: Intermediate
 * **Scenario 010 (Obstacle Avoidance)**: 1 xe AGV cần di chuyển qua khu vực có chứa vật cản tĩnh lớn nằm chắn trực diện trên lối đi để kiểm thử khả năng tìm đường vòng tránh của mô hình.
 * **Scenario 012 (Low Battery Charging)**: 1 xe AGV xuất phát với mức pin yếu (40%), bắt buộc mô hình phải tự nhận biết dung lượng pin để điều hướng xe đến vùng sạc pin trước khi thực hiện đơn hàng.
+* **Scenario 013 (Low Battery Sustainable Charging)**: 1 xe AGV xuất phát từ `DOCK_B` với lượng pin tối thiểu (5.5%) và mục tiêu là giao hàng tới `SHELF_B2`. AI phải nhận biết được mức pin khứ hồi để điều hướng xe về trạm sạc `DOCK_A` trước khi thực hiện nhiệm vụ, đảm bảo xe đủ pin quay lại trạm sạc sau khi hoàn thành.
 
 ## Level 3: Advanced
 * **Scenario 020 (Multi-AGV Junction Conflict)**: Điều phối từ 2 xe AGV hoạt động đồng thời ngược chiều nhau trên các đoạn đường hẹp, bắt buộc mô hình phải tính toán thời gian hoặc đổi hướng một xe để tránh va chạm chéo tại giao lộ.
@@ -149,6 +150,24 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 * **Qwen Max (Cloud)**: Thất bại do va chạm (`collision`). Mô hình lập đúng hành trình sạc pin, tuy nhiên khi di chuyển từ trạm sạc về điểm đích đã bị đâm nhẹ vào rìa vùng cản.
 * **Llama 3.3 70B (Groq)**: Thất bại do cạn pin giữa đường. Mô hình chưa tối ưu hóa việc điều phối ghé trạm sạc kịp thời hoặc lộ trình sinh ra quá dài.
 * **GPT-OSS 20B & Llama 3.1 8B**: Thất bại do lỗi sinh cấu trúc chỉ thị không hợp lệ.
+
+---
+
+## Level 2 - Scenario 013 (Low Battery Sustainable Charging)
+**Yêu cầu**: Xe `AGV_01` ở `DOCK_B` có pin cực thấp (5.5%), cần sạc tại `DOCK_A` trước khi giao hàng tới `SHELF_B2`.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **SUCCESS** | **FAILED** | **FAILED** |
+| **Độ trễ API (ms)** | ~19328.2 | ~6601.1 | ~2179.1 |
+| **Thời gian mô phỏng (s)**| 89.40 | 29.60 | 29.60 |
+| **Số vụ va chạm** | 0 | 0 | 0 |
+| **Pin còn lại (%)** | 88.36% | 0.00% | 0.00% |
+
+### Ghi chú lỗi (Notes on Failed Models):
+* **Qwen Max (Cloud)**: Thất bại do lỗi cạn pin (`battery_dead`). Mô hình lập lộ trình đi thẳng từ `DOCK_B` đến `SHELF_B2` mà không lập lộ trình đi sạc trước, làm xe hết pin và dừng lại ở `WP_2`.
+* **Llama 3.3 70B (Groq)**: Thất bại tương tự do cố đi thẳng mà không sạc, gây sập nguồn tại `WP_2`.
+* **Gemini 2.5 Flash (Thành công)**: Đã giải bài toán xuất sắc. Mô hình tự lên kế hoạch cho xe di chuyển từ `DOCK_B` về `DOCK_A` để sạc pin (về tới nơi còn `0.46%` pin), sạc đầy lên `100%`, sau đó quay lại lấy hàng tại `DOCK_B` và giao tới `SHELF_B2` thành công mỹ mãn.
 
 ---
 

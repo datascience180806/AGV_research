@@ -1,0 +1,65 @@
+{
+  "scenario_id": "scenario_021",
+  "scenario_name": "Multi-AGV - Junction Collision Avoidance",
+  "level": 3,
+  "description": "3 AGVs operate concurrently and cross the central warehouse axis. The model must sequence them to avoid crashes at the intersections.",
+  "factory_layout": "simple_warehouse",
+  "agvs": [
+    {
+      "serial_number": "AGV_01",
+      "initial_position": { "x": 5.0, "y": 5.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    },
+    {
+      "serial_number": "AGV_02",
+      "initial_position": { "x": 45.0, "y": 5.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    },
+    {
+      "serial_number": "AGV_03",
+      "initial_position": { "x": 25.0, "y": 35.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    }
+  ],
+  "transport_requests": [
+    {
+      "request_id": "REQ_001",
+      "pickup_node": "DOCK_A",
+      "dropoff_node": "SHELF_B2",
+      "priority": 1,
+      "payload_type": "pallet",
+      "payload_weight_kg": 50.0
+    },
+    {
+      "request_id": "REQ_002",
+      "pickup_node": "SHELF_B1",
+      "dropoff_node": "DOCK_B",
+      "priority": 1,
+      "payload_type": "box",
+      "payload_weight_kg": 20.0
+    },
+    {
+      "request_id": "REQ_003",
+      "pickup_node": "WP_2",
+      "dropoff_node": "WP_1",
+      "priority": 1,
+      "payload_type": "box",
+      "payload_weight_kg": 10.0
+    }
+  ],
+  "constraints": {
+    "max_time_seconds": 150,
+    "collision_tolerance": 1.5
+  },
+  "success_criteria": {
+    "all_requests_delivered": true,
+    "no_collisions": true,
+    "battery_above": 10.0
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "scenario_id": "scenario_011",
+  "scenario_name": "Multi-AGV - Independent Non-Overlapping Paths",
+  "level": 2,
+  "description": "2 AGVs execute separate tasks on separate parts of the layout without crossing paths. AGV_01 moves Dock A -> Waypoint 1, while AGV_02 moves Dock B -> Waypoint 2.",
+  "factory_layout": "simple_warehouse",
+  "agvs": [
+    {
+      "serial_number": "AGV_01",
+      "initial_position": { "x": 5.0, "y": 5.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    },
+    {
+      "serial_number": "AGV_02",
+      "initial_position": { "x": 5.0, "y": 35.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    }
+  ],
+  "transport_requests": [
+    {
+      "request_id": "REQ_001",
+      "pickup_node": "DOCK_A",
+      "dropoff_node": "WP_1",
+      "priority": 1,
+      "payload_type": "pallet",
+      "payload_weight_kg": 50.0
+    },
+    {
+      "request_id": "REQ_002",
+      "pickup_node": "DOCK_B",
+      "dropoff_node": "WP_2",
+      "priority": 1,
+      "payload_type": "box",
+      "payload_weight_kg": 20.0
+    }
+  ],
+  "constraints": {
+    "max_time_seconds": 120,
+    "collision_tolerance": 1.5
+  },
+  "success_criteria": {
+    "all_requests_delivered": true,
+    "no_collisions": true,
+    "battery_above": 10.0
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "scenario_id": "scenario_005",
+  "scenario_name": "Single AGV - Return to Start Node",
+  "level": 1,
+  "description": "1 AGV starts at Dock A, picks up a payload, delivers it to Shelf B1, and is required to return back to Dock A after completion.",
+  "factory_layout": "simple_warehouse",
+  "agvs": [
+    {
+      "serial_number": "AGV_01",
+      "initial_position": { "x": 5.0, "y": 5.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    }
+  ],
+  "transport_requests": [
+    {
+      "request_id": "REQ_004",
+      "pickup_node": "DOCK_A",
+      "dropoff_node": "SHELF_B1",
+      "priority": 1,
+      "payload_type": "pallet",
+      "payload_weight_kg": 50.0
+    }
+  ],
+  "constraints": {
+    "max_time_seconds": 120,
+    "collision_tolerance": 1.5
+  },
+  "success_criteria": {
+    "all_requests_delivered": true,
+    "no_collisions": true,
+    "battery_above": 10.0
+  }
+}

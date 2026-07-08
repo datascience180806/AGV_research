@@ -1,0 +1,50 @@
+{
+  "scenario_id": "scenario_014",
+  "scenario_name": "Multi-AGV - Task Assignment",
+  "level": 2,
+  "description": "2 AGVs are stationed at different docks. 2 transport requests are received. The model must distribute tasks appropriately: AGV_01 takes request starting at Dock A, AGV_02 takes request starting at Dock B.",
+  "factory_layout": "simple_warehouse",
+  "agvs": [
+    {
+      "serial_number": "AGV_01",
+      "initial_position": { "x": 5.0, "y": 5.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    },
+    {
+      "serial_number": "AGV_02",
+      "initial_position": { "x": 5.0, "y": 35.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    }
+  ],
+  "transport_requests": [
+    {
+      "request_id": "REQ_003",
+      "pickup_node": "DOCK_A",
+      "dropoff_node": "SHELF_B1",
+      "priority": 1,
+      "payload_type": "pallet",
+      "payload_weight_kg": 50.0
+    },
+    {
+      "request_id": "REQ_004",
+      "pickup_node": "DOCK_B",
+      "dropoff_node": "SHELF_B2",
+      "priority": 1,
+      "payload_type": "box",
+      "payload_weight_kg": 20.0
+    }
+  ],
+  "constraints": {
+    "max_time_seconds": 120,
+    "collision_tolerance": 1.5
+  },
+  "success_criteria": {
+    "all_requests_delivered": true,
+    "no_collisions": true,
+    "battery_above": 10.0
+  }
+}

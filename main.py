@@ -170,12 +170,23 @@ class VehicleSimulator:
                 # No action timer needed for instant actions like initPosition
                 return True # Action handled
             
-            elif action.action_type == "dropOff":
+            elif action.action_type in ["pickUp", "pickup"]:
+                # Simulate starting the pick-up process
+                print(f"SIM ({self.config.vehicle.serial_number}): Starting pickUp action ID {action.action_id}")
+                self.action_start_time = datetime.datetime.utcnow()
+                return True # Action started
+
+            elif action.action_type in ["dropOff", "dropoff"]:
                 # Simulate starting the drop-off process
                 print(f"SIM ({self.config.vehicle.serial_number}): Starting dropOff action ID {action.action_id}")
-                # Set the start time - state_iterate will handle finishing it
                 self.action_start_time = datetime.datetime.utcnow()
-                # Action is now RUNNING, return True
+                return True # Action started
+
+            elif action.action_type == "charge":
+                # Simulate starting the charging process
+                print(f"SIM ({self.config.vehicle.serial_number}): Starting charging action ID {action.action_id}")
+                self.state.battery_state.battery_charge = 100.0 # Replenish battery to 100%
+                self.action_start_time = datetime.datetime.utcnow()
                 return True # Action started
 
             else:

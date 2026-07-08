@@ -88,6 +88,14 @@
             border-radius: 20px;
             border: 1px solid rgba(16, 185, 129, 0.2);
             font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+        }
+
+        .server-status:hover {
+            opacity: 0.85;
+            transform: scale(1.02);
         }
 
         .server-status.offline {
@@ -630,7 +638,13 @@
     </div>
 
     <script>
-        const BACKEND_URL = "http://127.0.0.1:8000";
+        const urlParams = new URLSearchParams(window.location.search);
+        let BACKEND_URL = urlParams.get('backend') || localStorage.getItem("VDA5050_BACKEND_URL") || "http://127.0.0.1:8000";
+        if (BACKEND_URL.endsWith("/")) {
+            BACKEND_URL = BACKEND_URL.slice(0, -1);
+        }
+        localStorage.setItem("VDA5050_BACKEND_URL", BACKEND_URL);
+
         let scenarios = [];
         let layouts = [];
         
@@ -643,6 +657,17 @@
 
         // On Load initialization
         window.addEventListener('DOMContentLoaded', () => {
+            // Setup backend config trigger on status click
+            const statusEl = document.getElementById("status-indicator");
+            statusEl.title = "Click to configure Backend URL (Current: " + BACKEND_URL + ")";
+            statusEl.addEventListener("click", () => {
+                const newUrl = prompt("Nhập URL của Backend API (ví dụ: https://ducdata1808-agv-simulator.hf.space hoặc http://127.0.0.1:8000):", BACKEND_URL);
+                if (newUrl !== null && newUrl.trim() !== "") {
+                    localStorage.setItem("VDA5050_BACKEND_URL", newUrl.trim());
+                    window.location.reload();
+                }
+            });
+
             checkBackendConnection();
             loadScenariosAndLayouts();
         });

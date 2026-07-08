@@ -15,11 +15,15 @@ COPY requirements.txt .
 # Cài đặt thêm các gói backend cần thiết (FastAPI, Uvicorn)
 RUN pip install --no-cache-dir -r requirements.txt fastapi uvicorn
 
-# Sao chép toàn bộ mã nguồn vào container
-COPY . .
-
 # Tạo User không phải root với UID 1000 (yêu cầu bắt buộc của Hugging Face Spaces)
 RUN useradd -m -u 1000 user
+
+# Sao chép toàn bộ mã nguồn vào container và gán quyền sở hữu cho user
+COPY --chown=user:user . .
+
+# Đảm bảo thư mục results có sẵn và thuộc quyền sở hữu của user
+RUN mkdir -p results && chown -R user:user results
+
 USER user
 ENV HOME=/home/user
 ENV PATH=/home/user/.local/bin:$PATH

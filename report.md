@@ -115,6 +115,53 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 
 ---
 
+## Level 1 - Scenario 003 (Sequential Tasks)
+**Yêu cầu**: Xe `AGV_01` thực hiện 2 transport request tuần tự: từ `DOCK_A` giao tới `SHELF_B1`, sau đó nhận từ `WP_2` giao tới `DOCK_B`.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **SUCCESS** | **SUCCESS** | **FAILED (collision)** |
+| **Độ trễ API (ms)** | ~18618.6 | ~5960.6 | ~1967.2 |
+| **Thời gian mô phỏng (s)**| 99.75 | 37.40 | 51.80 |
+| **Số vụ va chạm** | 0 | 0 | 1 |
+| **Pin còn lại (%)** | 81.7% | 93.3% | 90.5% |
+
+### Ghi chú lỗi (Notes on Failed Models):
+* **Llama 3.3 70B (Groq)**: Thất bại do va chạm trong quá trình di chuyển ở giai đoạn 2.
+* **Qwen Max (Cloud)**: Mô hình thực tế chỉ lập lệnh cho request đầu tiên rồi dừng (được hệ thống giả lập đánh giá hoàn thành do đi hết các node trong order).
+
+---
+
+## Level 1 - Scenario 004 (Shortest Path Selection)
+**Yêu cầu**: Xe `AGV_01` cần nhận hàng tại `DOCK_A` giao tới `WP_2`. AI cần chọn giữa đường tắt đi qua `DOCK_B` (50m) hoặc đi vòng qua `WP_1` (90m).
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **SUCCESS** | **FAILED (collision)** | **SUCCESS** |
+| **Độ trễ API (ms)** | ~18184.9 | ~7242.5 | ~1830.2 |
+| **Thời gian mô phỏng (s)**| 79.05 | 21.65 | 79.05 |
+| **Số vụ va chạm** | 0 | 1 | 0 |
+| **Pin còn lại (%)** | 85.0% | 96.1% | 85.0% |
+
+### Ghi chú lỗi (Notes on Failed Models):
+* **Qwen Max (Cloud)**: Thất bại do đâm vào vật cản ở hành lang hẹp.
+* **Đánh giá tối ưu đường đi**: Cả Gemini và Llama đều chọn đường đi vòng dài hơn (90m), cho thấy các mô hình chưa tối ưu hóa tính toán khoảng cách cực tiểu (Shortest Path) khi lập lộ trình.
+
+---
+
+## Level 1 - Scenario 005 (Return to Start Node)
+**Yêu cầu**: Xe `AGV_01` bắt đầu tại `DOCK_A`, lấy hàng giao đến `SHELF_B1`, sau đó di chuyển quay trở lại điểm xuất phát `DOCK_A`.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **SUCCESS** | **SUCCESS** | **SUCCESS** |
+| **Độ trễ API (ms)** | ~5154.5 | ~6280.0 | ~1270.2 |
+| **Thời gian mô phỏng (s)**| 37.40 | 37.40 | 37.40 |
+| **Số vụ va chạm** | 0 | 0 | 0 |
+| **Pin còn lại (%)** | 93.3% | 93.3% | 93.3% |
+
+---
+
 ## Level 2 - Scenario 010 (Obstacle Avoidance)
 **Yêu cầu**: Xe `AGV_01` cần nhận hàng tại `DOCK_A` và chuyển đến `DOCK_B` trong điều kiện có bức tường `WALL_CENTER` chắn đường trực tiếp (Pin khởi điểm 100%).
 
@@ -132,6 +179,22 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 * **Llama 3.3 70B (Groq)**: Thất bại do va chạm (`collision`). Mô hình cố gắng cắt góc đi sát ranh giới của `WALL_CENTER` dẫn đến va chạm.
 * **GPT-OSS 20B (Groq)**: Thất bại do lỗi sinh cấu trúc lộ trình VDA 5050.
 * **Llama 3.1 8B (Groq)**: Thất bại do va chạm với bức tường trung tâm.
+
+---
+
+## Level 2 - Scenario 011 (Multi-AGV - Independent Paths)
+**Yêu cầu**: 2 xe AGV (`AGV_01`, `AGV_02`) thực hiện nhiệm vụ ở các khu vực tách biệt hoàn toàn (không giao cắt): `AGV_01` đi từ `DOCK_A` tới `WP_1`, `AGV_02` đi từ `DOCK_B` tới `WP_2`.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **FAILED (collision)** | **SUCCESS** | **SUCCESS** |
+| **Độ trễ API (ms)** | ~22074.6 | ~9097.1 | ~1716.4 |
+| **Thời gian mô phỏng (s)**| 43.20 | 20.75 | 20.75 |
+| **Số vụ va chạm** | 1 | 0 | 0 |
+| **Pin còn lại (%)** | AGV_01: 96.7%, AGV_02: 91.8% | AGV_01: 96.7%, AGV_02: 96.7% | AGV_01: 96.7%, AGV_02: 96.7% |
+
+### Ghi chú lỗi (Notes on Failed Models):
+* **Gemini 2.5 Flash**: Thất bại do va chạm (`collision`). Mô hình tự ý vẽ lộ trình của `AGV_02` đi qua `DOCK_A` (thay vì đi thẳng `DOCK_B` ➔ `WP_2`), gây va chạm trực diện với `AGV_01` tại khu vực Dock A.
 
 ---
 
@@ -171,6 +234,22 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 
 ---
 
+## Level 2 - Scenario 014 (Multi-AGV - Task Assignment)
+**Yêu cầu**: 2 xe đỗ ở các Dock khác nhau, hệ thống có 2 transport request độc lập xuất hiện đồng thời (`REQ_003` tại Dock A, `REQ_004` tại Dock B). Mô hình phải tự phân bổ nhiệm vụ hợp lý.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **SUCCESS** | **SUCCESS** | **SUCCESS** |
+| **Độ trễ API (ms)** | ~13233.2 | ~10066.2 | ~2037.3 |
+| **Thời gian mô phỏng (s)**| 37.40 | 37.40 | 37.40 |
+| **Số vụ va chạm** | 0 | 0 | 0 |
+| **Pin còn lại (%)** | AGV_01: 93.3%, AGV_02: 93.3% | AGV_01: 93.3%, AGV_02: 93.3% | AGV_01: 93.3%, AGV_02: 93.3% |
+
+### Ghi chú phân tích kịch bản:
+* Cả 3 mô hình đều hoàn thành kịch bản xuất sắc, tự biết phân chia việc một cách tối ưu: `AGV_01` nhận nhiệm vụ xuất phát từ `DOCK_A` và `AGV_02` nhận nhiệm vụ từ `DOCK_B`.
+
+---
+
 ## Level 3 - Scenario 020 (Multi-AGV Junction Conflict)
 **Yêu cầu**: Điều phối 2 xe AGV tránh đụng nhau tại giao lộ. Xe `AGV_01` giao hàng từ `DOCK_A` đến `SHELF_B2`. Xe `AGV_02` giao hàng từ `SHELF_B2` đến `DOCK_A`. Lộ trình đi chéo của hai xe giao cắt trực tiếp tại khu vực hành lang hẹp trung tâm.
 
@@ -185,6 +264,40 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 
 ### Ghi chú phân tích kịch bản:
 * Cả 3 mô hình lớn **Gemini 2.5 Flash**, **Qwen Max** và **Llama 3.3 70B** đều hoàn thành kịch bản xuất sắc nhờ việc lập hành trình phân tách nhịp nhàng. Hai xe đi qua điểm giao cắt lệch thời gian nên không hề xảy ra va chạm.
+
+---
+
+## Level 3 - Scenario 021 (Multi-AGV - Junction Collision Avoidance)
+**Yêu cầu**: 3 xe AGV di chuyển giao cắt chéo qua hành lang trung tâm. AI phải phân luồng thời gian hoặc điều hướng đi vòng để tránh va chạm.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **SUCCESS** | **FAILED (collision)** | **FAILED (collision)** |
+| **Độ trễ API (ms)** | ~22965.1 | ~17523.2 | ~3108.5 |
+| **Thời gian mô phỏng (s)**| 62.45 | 10.05 | 10.05 |
+| **Số vụ va chạm** | 0 | 1 | 1 |
+| **Pin còn lại (%)** | AGV_01: 88.4%, AGV_02: 88.4%, AGV_03: 88.3% | AGV_01: 98.4%, AGV_02: 98.4%, AGV_03: 98.4% | AGV_01: 98.4%, AGV_02: 98.4%, AGV_03: 98.4% |
+
+### Ghi chú lỗi (Notes on Failed Models):
+* **Qwen Max & Llama 3.3 70B**: Thất bại do lỗi va chạm trực diện ở giây thứ 10.05. Cả hai mô hình đều không có khả năng phân luồng thứ tự di chuyển (delay xe này, cho xe kia đi trước) hoặc định tuyến đi vòng cho 3 xe.
+* **Gemini 2.5 Flash (Thành công)**: Đã giải bài toán xuất sắc, điều phối giao lộ mượt mà, phân luồng thời gian tự nhiên nên không có xe nào bị đâm nhau.
+
+---
+
+## Level 3 - Scenario 022 (Multi-AGV - 4-Robot Task Distribution)
+**Yêu cầu**: 4 xe AGV và 4 transport request diễn ra cùng lúc trên sơ đồ.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **SUCCESS** | **FAILED (collision)** | **FAILED (collision)** |
+| **Độ trễ API (ms)** | ~35125.9 | ~23408.0 | ~2733.2 |
+| **Thời gian mô phỏng (s)**| 45.70 | 11.60 | 11.65 |
+| **Số vụ va chạm** | 0 | 1 | 1 |
+| **Pin còn lại (%)** | AGV_01: 93.3%, AGV_02: 91.7%, AGV_03: 91.7%, AGV_04: 96.7% | AGV_01: 98.1%, AGV_02: 98.1%, AGV_03: 98.1%, AGV_04: 98.1% | AGV_01: 98.1%, AGV_02: 98.1%, AGV_03: 98.1%, AGV_04: 98.1% |
+
+### Ghi chú lỗi (Notes on Failed Models):
+* **Qwen Max & Llama 3.3 70B**: Bị va chạm chéo tại giao lộ hành lang dọc ở giây thứ 11.60. Do hạm đội 4 xe di chuyển với mật độ quá lớn, hai mô hình này mất kiểm soát không gian.
+* **Gemini 2.5 Flash (Thành công)**: Chứng minh năng lực vượt trội bằng cách phân chia lộ trình không có va chạm, hoàn thành toàn bộ 4 transport request sau 45.70s.
 
 ---
 
@@ -204,6 +317,22 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 ### Ghi chú lỗi (Notes on Failed Models):
 * **Qwen Max (Cloud)**: Thất bại do lỗi lập lộ trình trống cho xe `AGV_03` ("Warning - Accepted order has no nodes"), dẫn đến xe này đứng im tại chỗ cản đường và bị 2 xe còn lại đâm vào ở giây thứ 9.70.
 * **Llama 3.3 70B (Groq)**: Thất bại do lỗi va chạm giao lộ hẹp ở giây thứ 6.20 vì không phân luồng xe đi vòng.
+
+---
+
+## Level 4 - Scenario 031 (Multi-AGV - Broken Down Vehicle Bypass)
+**Yêu cầu**: 4 xe AGV hoạt động. Xe `AGV_04` bị hỏng đứng yên chặn tại `WP_1`. AI phải tự định hướng 3 xe còn lại di chuyển vòng tránh điểm tắc nghẽn này.
+
+| Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
+| :--- | :---: | :---: | :---: |
+| **Trạng thái chạy** | **FAILED (collision)** | **FAILED (collision)** | **FAILED (collision)** |
+| **Độ trễ API (ms)** | ~55733.4 | ~13652.4 | ~2213.2 |
+| **Thời gian mô phỏng (s)**| 18.20 | 18.20 | 18.20 |
+| **Số vụ va chạm** | 1 | 1 | 1 |
+| **Pin còn lại (%)** | AGV_01: 96.8%, AGV_02: 96.8%, AGV_03: 96.8%, AGV_04: 100% | AGV_01: 96.8%, AGV_02: 96.8%, AGV_03: 96.8%, AGV_04: 100% | AGV_01: 96.8%, AGV_02: 96.8%, AGV_03: 96.8%, AGV_04: 100% |
+
+### Ghi chú lỗi (Notes on Failed Models):
+* **Cả 3 mô hình (Gemini, Qwen, Llama)** đều thất bại do đâm vào xe bị hỏng `AGV_04` tại điểm `WP_1` ở giây thứ 18.20. Điều này chỉ ra rằng năng lực xử lý sự cố tĩnh (bản đồ bị thay đổi động) là giới hạn thử thách cực kỳ khó của các LLM hiện tại, chưa mô hình nào biết phân tích trạng thái `speed: 0.0` của xe hỏng để chủ động lập lộ trình tránh.
 
 ---
 

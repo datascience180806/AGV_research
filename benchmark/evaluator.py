@@ -66,3 +66,23 @@ class ScenarioEvaluator:
         nearest_x = x1 + t * dx
         nearest_y = y1 + t * dy
         return math.sqrt((px - nearest_x)**2 + (py - nearest_y)**2)
+
+    @staticmethod
+    def check_restricted_zone_violation(
+        agv_positions: Dict[str, Tuple[float, float]],
+        zones: List[Dict[str, Any]]
+    ) -> List[Tuple[str, str]]:
+        """Kiểm tra xe AGV xâm nhập vào vùng hạn chế di chuyển (restricted zone)"""
+        violations = []
+        for serial, (ax, ay) in agv_positions.items():
+            for zone in zones:
+                if zone.get("type") == "restricted":
+                    bounds = zone.get("bounds", {})
+                    x_min = bounds.get("x_min", 0.0)
+                    x_max = bounds.get("x_max", 0.0)
+                    y_min = bounds.get("y_min", 0.0)
+                    y_max = bounds.get("y_max", 0.0)
+                    
+                    if x_min <= ax <= x_max and y_min <= ay <= y_max:
+                        violations.append((serial, zone.get("zone_id", "RESTRICTED_ZONE")))
+        return violations

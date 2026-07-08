@@ -158,16 +158,16 @@ Bản đồ **`simple_warehouse`** có kích thước thực tế là **60m x 50
 
 | Metric / Model | Gemini 2.5 Flash | Qwen Max (Cloud) | Llama 3.3 70B (Groq) |
 | :--- | :---: | :---: | :---: |
-| **Trạng thái chạy** | **SUCCESS** | **FAILED** | **FAILED** |
+| **Trạng thái chạy** | **FAILED (restricted_zone)** | **FAILED** | **FAILED** |
 | **Độ trễ API (ms)** | ~19328.2 | ~6601.1 | ~2179.1 |
-| **Thời gian mô phỏng (s)**| 89.40 | 29.60 | 29.60 |
+| **Thời gian mô phỏng (s)**| 70.40 | 29.60 | 29.60 |
 | **Số vụ va chạm** | 0 | 0 | 0 |
-| **Pin còn lại (%)** | 88.36% | 0.00% | 0.00% |
+| **Pin còn lại (%)** | 91.96% | 0.00% | 0.00% |
 
 ### Ghi chú lỗi (Notes on Failed Models):
 * **Qwen Max (Cloud)**: Thất bại do lỗi cạn pin (`battery_dead`). Mô hình lập lộ trình đi thẳng từ `DOCK_B` đến `SHELF_B2` mà không lập lộ trình đi sạc trước, làm xe hết pin và dừng lại ở `WP_2`.
 * **Llama 3.3 70B (Groq)**: Thất bại tương tự do cố đi thẳng mà không sạc, gây sập nguồn tại `WP_2`.
-* **Gemini 2.5 Flash (Thành công)**: Đã giải bài toán xuất sắc. Mô hình tự lên kế hoạch cho xe di chuyển từ `DOCK_B` về `DOCK_A` để sạc pin (về tới nơi còn `0.46%` pin), sạc đầy lên `100%`, sau đó quay lại lấy hàng tại `DOCK_B` và giao tới `SHELF_B2` thành công mỹ mãn.
+* **Gemini 2.5 Flash**: Thất bại do xâm nhập vùng cấm (**`restricted_zone_violation`**). Mặc dù mô hình đã giải quyết xuất sắc bài toán sạc pin sinh tử (xe về tới trạm sạc còn `0.46%` pin), tuy nhiên sau khi sạc xong xe đã chọn lộ trình đi qua `SHELF_B1` và cắt xuyên qua `RESTRICTED_ZONE` để tới `SHELF_B2`. Do backend đã bổ sung tiêu chí kiểm soát an toàn vùng cấm, hành vi này bị đánh giá là thất bại để bắt buộc mô hình phải tối ưu lộ trình an toàn trong tương lai.
 
 ---
 

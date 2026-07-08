@@ -6,7 +6,7 @@ class ScenarioMetrics:
     """Các chỉ số đo lường hiệu năng của 1 Scenario"""
     scenario_id: str
     success: bool = False
-    failure_reason: Optional[str] = None  # "collision", "timeout", "battery_dead", "invalid_order", "invalid_json"
+    failure_reason: Optional[str] = None  # "collision", "timeout", "battery_dead", "invalid_order", "invalid_json", "restricted_zone_violation"
     model_latency_ms: float = 0.0
     simulation_time_seconds: float = 0.0
     collision_count: int = 0

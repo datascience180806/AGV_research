@@ -226,6 +226,15 @@ class BenchmarkRunner:
                 logger.log_event("collision_with_obstacle_detected", "EVENT", {"collisions": obstacle_collisions}, elapsed_time=elapsed_time)
                 break
 
+            # E. Kiểm tra xâm nhập vùng hạn chế di chuyển (Restricted Zone)
+            no_restricted = scenario.get("success_criteria", {}).get("no_restricted_zone_violation", False)
+            if no_restricted:
+                restricted_violations = ScenarioEvaluator.check_restricted_zone_violation(agv_positions, layout.get("zones", []))
+                if restricted_violations:
+                    failure_reason = "restricted_zone_violation"
+                    logger.log_event("restricted_zone_violation_detected", "EVENT", {"violations": restricted_violations}, elapsed_time=elapsed_time)
+                    break
+
             # D. Kiểm tra hoàn thành tất cả nhiệm vụ
             # Một kịch bản coi như hoàn thành khi tất cả các simulator hoàn thành đơn hàng 
             # (không còn node_states hoặc chỉ còn node cuối cùng và không có action nào chưa hoàn thành)

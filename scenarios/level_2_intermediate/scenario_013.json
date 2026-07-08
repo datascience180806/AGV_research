@@ -30,6 +30,7 @@
   "success_criteria": {
     "all_requests_delivered": true,
     "no_collisions": true,
-    "battery_above": 10.0
+    "battery_above": 10.0,
+    "no_restricted_zone_violation": true
   }
 }

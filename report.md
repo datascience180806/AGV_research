@@ -18,6 +18,39 @@ Quy trình trao đổi dữ liệu tuân thủ nghiêm ngặt chuẩn **VDA 5050
 2. **Yêu cầu chỉ lệnh (Order Message)**: Trung tâm điều phối gửi các gói tin chỉ thị chứa danh sách các Node và Edge liên kết cần di chuyển qua. Các Node và Edge được sắp xếp xen kẽ và đánh số thứ tự tuần tự tăng dần (`sequenceId`).
 3. **Cập nhật tác vụ (Action Updates)**: Khi đi đến đúng Node yêu cầu, xe AGV sẽ tự động kích hoạt tác vụ đính kèm, cập nhật trạng thái tác vụ từ `WAITING` sang `RUNNING` và kết thúc bằng `FINISHED` để thông báo cho Trung tâm điều phối.
 
+## Thông số động học và tiêu hao pin
+
+Để phục vụ việc lập lộ trình và tính toán năng lượng, dưới đây là các thông số động học chi tiết của xe AGV trong hệ thống giả lập:
+* **Tần số cập nhật (Tick Rate)**: Mô phỏng chạy ở tần số **20Hz** (20 ticks tương đương 1 giây thực tế).
+* **Tốc độ di chuyển của xe ($v$)**: Mỗi tick xe di chuyển được quãng đường cố định là `0.06 mét` (cấu hình `speed: 0.06` trong kịch bản).
+  $$v = 0.06 \text{ m/tick} \times 20 \text{ ticks/s} = 1.2 \text{ m/s} \text{ (tương đương } 4.32 \text{ km/h)}$$
+* **Hao hụt pin khi di chuyển (Driving Drainage)**: Tiêu hao **`0.01%` dung lượng pin trên mỗi tick** di chuyển (tương đương **`0.2%` trên mỗi giây** thực tế).
+* **Hao hụt pin khi đứng yên (Idle Drainage)**: Tiêu hao **`0.001%` dung lượng pin trên mỗi tick** đứng chờ (tương đương **`0.02%` trên mỗi giây** thực tế).
+
+### Ví dụ tính toán thực tế trên sơ đồ:
+
+#### Ví dụ 1: Đi từ `DOCK_B` đến `DOCK_A`
+* **Khoảng cách ($S$)**: Tọa độ `DOCK_B` $(5.0, 35.0)$ và `DOCK_A` $(5.0, 5.0)$ có độ lệch trục Y là:
+  $$S = 35.0 - 5.0 = 30 \text{ mét}$$
+* **Thời gian di chuyển ($t$)**:
+  $$t = \frac{30 \text{ m}}{1.2 \text{ m/s}} = 25 \text{ giây}$$
+* **Số tick mô phỏng**:
+  $$\text{ticks} = 25 \text{ s} \times 20 \text{ ticks/s} = 500 \text{ ticks}$$
+* **Pin tiêu thụ**:
+  $$\text{Pin hao hụt} = 500 \text{ ticks} \times 0.01\%/\text{tick} = 5.0\%$$
+  *(Hoặc: $25 \text{ giây} \times 0.2\%/\text{giây} = 5.0\%$)*
+
+#### Ví dụ 2: Đi từ `DOCK_B` đến `SHELF_B2`
+* **Khoảng cách ($S$)**: Tọa độ `DOCK_B` $(5.0, 35.0)$ và `SHELF_B2` $(45.0, 35.0)$ có độ lệch trục X là:
+  $$S = 45.0 - 5.0 = 40 \text{ mét}$$
+* **Thời gian di chuyển ($t$)**:
+  $$t = \frac{40 \text{ m}}{1.2 \text{ m/s}} \approx 33.33 \text{ giây}$$
+* **Số tick mô phỏng**:
+  $$\text{ticks} = 33.33 \text{ s} \times 20 \text{ ticks/s} \approx 667 \text{ ticks}$$
+* **Pin tiêu thụ**:
+  $$\text{Pin hao hụt} = 667 \text{ ticks} \times 0.01\%/\text{tick} \approx 6.67\%$$
+  *(Hoặc: $33.33 \text{ giây} \times 0.2\%/\text{giây} = 6.67\%$)*
+
 ---
 
 # Các Cấp Độ Kịch Bản (Scenarios Levels)

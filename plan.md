@@ -1,27 +1,54 @@
-# AGV Physical Model Reasoning Benchmark
+# AGV Anomaly Detection & Diagnosis Benchmark
 
-Xây dựng hệ thống benchmark đánh giá khả năng suy luận của các AI/Physical Models trong việc điều phối xe AGV tại môi trường nhà máy giả lập, dựa trên nền tảng simulator VDA 5050 hiện có.
+Xây dựng hệ thống benchmark đánh giá khả năng **nhận biết lỗi, chẩn đoán nguyên nhân và đưa ra cảnh báo sớm** của các AI Models (gọi qua API) khi giám sát luồng dữ liệu vận hành xe AGV theo chuẩn VDA 5050 trong môi trường nhà máy giả lập.
 
 ## Tổng quan ý tưởng
 
 ```mermaid
 graph LR
-    A["📦 Transport Request\n(Đơn vận chuyển)"] --> B["🧠 AI Model\n(via API)"]
-    C["🏭 Factory Layout\n(Cấu trúc nhà máy)"] --> B
-    D["🚗 AGV States\n(Trạng thái xe)"] --> B
-    B --> E["📨 VDA5050 Order\n(Lệnh di chuyển)"]
-    E --> F["⚙️ AGV Simulator\n(Giả lập)"]
-    F --> G["📊 Evaluator\n(Đánh giá)"]
-    G --> H["📋 Benchmark Report"]
+    subgraph "⚙️ Operation Layer (Hard-coded)"
+        OP["Route Controller\n(Thuật toán A*)"]
+        SIM["AGV Simulator\n(VDA 5050)"]
+        INJ["Fault Injector\n(Cấy sự cố)"]
+    end
+
+    subgraph "📡 Packet Stream"
+        PS["MQTT Packet Bus\n(State, Visualization,\nSensor Data)"]
+    end
+
+    subgraph "🧠 AI Diagnosis Layer (via API)"
+        MA["Model Adapter"]
+        OAI["OpenAI / GPT-4o"]
+        GEM["Gemini 2.5 Flash/Pro"]
+        ANT["Claude Opus/Sonnet"]
+    end
+
+    subgraph "📊 Evaluation Layer"
+        EVA["Diagnosis Evaluator"]
+        REP["Benchmark Report"]
+    end
+
+    OP --> SIM
+    INJ --> SIM
+    SIM --> PS
+    PS --> MA
+    PS --> EVA
+    MA --> OAI
+    MA --> GEM
+    MA --> ANT
+    OAI --> EVA
+    GEM --> EVA
+    ANT --> EVA
+    EVA --> REP
 ```
 
 **Luồng hoạt động cốt lõi:**
-1. Hệ thống tải một **scenario** (kịch bản) chứa layout nhà máy + danh sách transport requests
-2. Gửi dữ liệu đầu vào (layout, trạng thái AGV, request) cho **AI Model** qua API
-3. AI Model trả về **VDA5050 Order** (lệnh chỉ thị di chuyển cho từng xe)
-4. Hệ thống đưa lệnh vào **AGV Simulator** và theo dõi kết quả
-5. **Evaluator** chấm điểm dựa trên: hoàn thành nhiệm vụ, va chạm, thời gian, pin...
-6. Tất cả gói tin vào/ra được ghi lại vào file log để phân tích
+1. **Route Controller** (hard-coded) tự động điều hướng xe AGV chạy theo lộ trình tối ưu trên layout
+2. **Fault Injector** cấy sự cố vào quá trình vận hành tại thời điểm được cấu hình (pin rò rỉ, xe kẹt, mất kết nối, quá tải trọng...)
+3. **Packet Stream** phát liên tục các gói tin VDA 5050 (state, visualization, sensor) ra bus chung
+4. Bản sao luồng gói tin được gửi đồng thời đến cả **Simulator** (hiển thị trên web) và **AI Model** (chẩn đoán)
+5. AI Model phân tích luồng gói tin theo cửa sổ trượt (Sliding Window), phát hiện bất thường, xác định nguyên nhân gốc và đề xuất giải pháp
+6. **Evaluator** so sánh kết quả chẩn đoán của AI với đáp án sự cố (ground truth) để chấm điểm
 
 ---
 
@@ -30,392 +57,697 @@ graph LR
 ```mermaid
 graph TD
     subgraph "📁 Input Layer"
-        FL["Factory Layout JSON"]
-        SC["Scenario Config JSON"]
-        TR["Transport Requests JSON"]
+        FL["Factory Layout JSON\n(Nodes, Edges, Obstacles, Zones)"]
+        SC["Scenario Config JSON\n(AGVs, Requests, Fault Injection)"]
+        RT["Route Script\n(Hard-coded cho từng layout)"]
     end
 
-    subgraph "🧠 Model Adapter Layer"
+    subgraph "⚙️ Operation Layer (Deterministic)"
+        RC["Route Controller\n(A* Pathfinding)"]
+        SIM["VDA 5050 Simulator\n(Physics Engine)"]
+        FI["Fault Injector\n(Cấy sự cố theo cấu hình)"]
+        SEN["Sensor Simulator\n(Trọng lượng, LiDAR, Nhiệt độ)"]
+    end
+
+    subgraph "📡 Packet Stream Bus"
+        PKT["VDA 5050 Packets\n(state, visualization, connection)"]
+        SPKT["Sensor Packets\n(weight, obstacle_scan, temperature)"]
+    end
+
+    subgraph "🧠 AI Diagnosis Layer (via API)"
+        SW["Sliding Window Buffer\n(N gói tin gần nhất)"]
         MA["Model Adapter (Abstract)"]
         OAI["OpenAI Adapter"]
         GEM["Gemini Adapter"]
         ANT["Anthropic Adapter"]
-        LOC["Local/Ollama Adapter"]
-    end
-
-    subgraph "⚙️ Simulation Layer"
-        SIM["Enhanced VDA5050 Simulator"]
-        COL["Collision Detector"]
-        VIS["Matplotlib Visualizer"]
+        GRQ["Groq Adapter"]
     end
 
     subgraph "📊 Evaluation Layer"
-        EVA["Scenario Evaluator"]
+        GT["Ground Truth\n(Đáp án sự cố)"]
+        EVA["Diagnosis Evaluator"]
         MET["Metrics Collector"]
-        LOG["Packet Logger"]
         REP["Report Generator"]
     end
 
-    FL --> MA
-    SC --> MA
-    TR --> MA
+    subgraph "🖥️ Web Interface"
+        DASH["Dashboard\n(So sánh cross-model)"]
+        VIS["Live Visualizer\n(Bản đồ 2D + Trạng thái xe)"]
+        DIAG["Diagnosis Panel\n(AI cảnh báo real-time)"]
+        LOG["Packet Log Viewer\n(Dòng gói tin chạy trượt)"]
+    end
+
+    FL --> RC
+    SC --> RC
+    SC --> FI
+    RT --> RC
+
+    RC --> SIM
+    FI --> SIM
+    SIM --> SEN
+    SIM --> PKT
+    SEN --> SPKT
+
+    PKT --> SW
+    SPKT --> SW
+    PKT --> VIS
+    SPKT --> VIS
+
+    SW --> MA
     MA --> OAI
     MA --> GEM
     MA --> ANT
-    MA --> LOC
+    MA --> GRQ
 
-    OAI --> SIM
-    GEM --> SIM
-    ANT --> SIM
-    LOC --> SIM
+    OAI --> EVA
+    GEM --> EVA
+    ANT --> EVA
+    GRQ --> EVA
 
-    SIM --> COL
-    SIM --> VIS
-    SIM --> EVA
-    SIM --> LOG
-
+    SC --> GT
+    GT --> EVA
     EVA --> MET
     MET --> REP
-    LOG --> REP
+
+    REP --> DASH
+    PKT --> LOG
+    EVA --> DIAG
 ```
 
 ---
 
-## Cấu trúc thư mục đề xuất
+## Cấu trúc thư mục
 
 ```
 vda5050-robot-simulator/
-├── config.toml                          # Config MQTT + simulation cơ bản (GIỮ NGUYÊN)
-├── config.py                            # Config loader (GIỮ NGUYÊN)
-├── main.py                              # VDA5050 Simulator (SỬA: thêm collision, hooks)
-├── commander_visualizer.py              # Visualizer (SỬA: thêm hiển thị obstacles, zones)
-├── mqtt_utils.py                        # MQTT utilities (GIỮ NGUYÊN)
-├── utils.py                             # Helper functions (GIỮ NGUYÊN)
-├── protocol/                            # VDA5050 protocol definitions (GIỮ NGUYÊN)
+├── config.toml                          # Config MQTT + simulation
+├── config.py                            # Config loader
+├── main.py                              # VDA5050 Simulator core
+├── mqtt_utils.py                        # MQTT utilities
+├── utils.py                             # Helper functions
+├── protocol/                            # VDA5050 protocol definitions
 │
-├── benchmark/                           # ★ THƯ MỤC MỚI - Core benchmark engine
+├── operations/                          # ★ MỚI - Hard-coded route controllers
 │   ├── __init__.py
-│   ├── runner.py                        # Benchmark orchestrator chính
-│   ├── evaluator.py                     # Chấm điểm kết quả simulation
-│   ├── metrics.py                       # Định nghĩa và tính toán metrics
-│   ├── packet_logger.py                 # Ghi lại tất cả gói tin vào/ra
+│   ├── base_router.py                   # Abstract base class (A* pathfinding)
+│   ├── simple_warehouse_ops.py          # Routes cho simple_warehouse layout
+│   ├── multi_zone_factory_ops.py        # Routes cho multi_zone_factory layout
+│   ├── complex_factory_ops.py           # Routes cho complex_factory layout
+│   └── fault_injector.py               # Bộ cấy sự cố (pin rò, mất mạng, kẹt xe...)
+│
+├── sensors/                             # ★ MỚI - Sensor simulation
+│   ├── __init__.py
+│   ├── weight_sensor.py                 # Cảm biến cân trọng lượng
+│   ├── lidar_scanner.py                 # Cảm biến quét vật cản LiDAR
+│   ├── temperature_monitor.py           # Cảm biến nhiệt độ động cơ
+│   ├── encoder_sensor.py               # Cảm biến tốc độ bánh xe (Encoder)
+│   └── battery_monitor.py              # Giám sát dung lượng pin chi tiết
+│
+├── benchmark/                           # ★ CẬP NHẬT - Diagnosis benchmark engine
+│   ├── __init__.py
+│   ├── runner.py                        # Benchmark orchestrator (chạy sim + gửi log cho AI)
+│   ├── diagnosis_evaluator.py           # So sánh chẩn đoán AI vs ground truth
+│   ├── metrics.py                       # Metrics chẩn đoán (detection latency, accuracy...)
+│   ├── packet_logger.py                 # Ghi lại toàn bộ gói tin vào/ra
+│   ├── sliding_window.py               # Bộ đệm cửa sổ trượt gói tin
 │   └── report_generator.py             # Xuất báo cáo kết quả
 │
-├── models/                              # ★ THƯ MỤC MỚI - AI Model adapters
+├── models/                              # ★ CẬP NHẬT - AI Model adapters (chẩn đoán)
 │   ├── __init__.py
-│   ├── base_adapter.py                  # Abstract base class cho tất cả adapters
-│   ├── openai_adapter.py               # Gọi GPT-4o/o3 qua OpenAI API
-│   ├── gemini_adapter.py               # Gọi Gemini qua Google AI API
-│   ├── anthropic_adapter.py            # Gọi Claude qua Anthropic API
-│   └── ollama_adapter.py               # Gọi local models qua Ollama API
+│   ├── base_adapter.py                  # Abstract base - diagnose_stream()
+│   ├── openai_adapter.py               # GPT-4o / o3
+│   ├── gemini_adapter.py               # Gemini 2.5 Pro/Flash
+│   ├── anthropic_adapter.py            # Claude Opus/Sonnet
+│   ├── groq_adapter.py                 # Llama / Qwen qua Groq
+│   └── qwen_adapter.py                 # Qwen Max qua Alibaba Cloud
 │
-├── scenarios/                           # ★ THƯ MỤC MỚI - Kịch bản benchmark
-│   ├── level_1_basic/                   # Cấp 1: Đơn giản
-│   │   ├── scenario_001.json            # 1 xe, 1 pickup, 1 dropoff, không vật cản
-│   │   ├── scenario_002.json            # 1 xe, nhiều điểm dừng, không vật cản
-│   │   └── ...
-│   ├── level_2_intermediate/            # Cấp 2: Trung bình
-│   │   ├── scenario_010.json            # 2 xe, có vật cản tĩnh
-│   │   └── ...
-│   ├── level_3_advanced/                # Cấp 3: Nâng cao
-│   │   ├── scenario_020.json            # Nhiều xe, vật cản, pin giới hạn
-│   │   └── ...
-│   └── level_4_expert/                  # Cấp 4: Chuyên gia
-│       ├── scenario_030.json            # Deadlock, xe hỏng, cảm biến lỗi
-│       └── ...
+├── scenarios/                           # ★ CẬP NHẬT - Kịch bản sự cố
+│   ├── level_1_single_fault/            # Cấp 1: 1 sự cố đơn lẻ, rõ ràng
+│   ├── level_2_multi_fault/             # Cấp 2: Nhiều sự cố đồng thời
+│   ├── level_3_cascading/               # Cấp 3: Sự cố dây chuyền (domino)
+│   ├── level_4_subtle/                  # Cấp 4: Sự cố tinh vi, khó phát hiện
+│   └── level_5_realworld/               # Cấp 5: Mô phỏng sự cố thực tế nhà máy
 │
-├── factory_layouts/                     # ★ THƯ MỤC MỚI - Bản đồ nhà máy
-│   ├── simple_warehouse.json            # Nhà kho đơn giản
-│   ├── l_shaped_factory.json            # Nhà máy hình chữ L
-│   ├── multi_zone_factory.json          # Nhà máy nhiều khu vực
-│   └── complex_factory.json             # Nhà máy phức tạp
+├── factory_layouts/                     # ★ CẬP NHẬT - Bản đồ phức tạp hơn
+│   ├── simple_warehouse.json            # 6 nodes, 6 edges (hiện tại)
+│   ├── multi_zone_factory.json          # 20+ nodes, nhiều zone, hành lang hẹp
+│   ├── complex_factory.json             # 40+ nodes, multi-floor, conveyor belts
+│   └── mega_distribution_center.json    # 80+ nodes, 20+ xe, khu vực đông đúc
 │
-├── results/                             # ★ THƯ MỤC MỚI - Kết quả benchmark
+├── frontend/                            # ★ CẬP NHẬT - Web interface
+│   └── index.html                       # SPA với Live Visualizer + Diagnosis Panel
+│
+├── results/                             # Kết quả benchmark
 │   └── {model_name}_{timestamp}/
-│       ├── benchmark_report.json        # Báo cáo tổng hợp
-│       ├── benchmark_report.md          # Báo cáo dạng Markdown
-│       ├── packet_log.jsonl             # Toàn bộ gói tin vào/ra
-│       └── visualizations/              # Screenshots/recordings
+│       ├── diagnosis_report.json        # Báo cáo chẩn đoán
+│       ├── packet_log.jsonl             # Toàn bộ gói tin
+│       └── diagnosis_timeline.json      # Dòng thời gian phát hiện lỗi
 │
-└── run_benchmark.py                     # ★ FILE MỚI - Entry point chạy benchmark
+├── app.py                               # FastAPI backend
+├── run_benchmark.py                     # Entry point chạy benchmark
+└── Dockerfile                           # Deploy lên Hugging Face
 ```
 
 ---
 
 ## Chi tiết thiết kế từng thành phần
 
-### 1. Factory Layout (Bản đồ nhà máy)
+### 1. Factory Layout (Bản đồ nhà máy - Nâng cấp)
 
-Mỗi factory layout là một file JSON mô tả cấu trúc vật lý của nhà máy:
+Layout mới sẽ phức tạp hơn đáng kể so với `simple_warehouse` hiện tại:
 
 ```json
 {
-  "layout_id": "simple_warehouse",
-  "layout_name": "Simple Warehouse Layout",
-  "map_id": "warehouse_01",
-  "dimensions": { "width": 20.0, "height": 15.0 },
+  "layout_id": "multi_zone_factory",
+  "layout_name": "Multi-Zone Manufacturing Factory",
+  "map_id": "factory_01",
+  "dimensions": { "width": 120.0, "height": 100.0 },
 
   "nodes": [
-    {
-      "node_id": "DOCK_A",
-      "x": 2.0, "y": 2.0,
-      "type": "dock",
-      "description": "Loading Dock A"
-    },
-    {
-      "node_id": "SHELF_B1",
-      "x": 10.0, "y": 8.0,
-      "type": "storage",
-      "description": "Storage Shelf B1"
-    },
-    {
-      "node_id": "WP_1",
-      "x": 6.0, "y": 5.0,
-      "type": "waypoint",
-      "description": "Waypoint 1"
-    }
+    { "node_id": "DOCK_IN_1", "x": 5.0, "y": 10.0, "type": "dock", "description": "Inbound Dock 1" },
+    { "node_id": "DOCK_IN_2", "x": 5.0, "y": 30.0, "type": "dock", "description": "Inbound Dock 2" },
+    { "node_id": "CHARGING_1", "x": 10.0, "y": 90.0, "type": "charging", "description": "Charging Station 1" },
+    { "node_id": "CHARGING_2", "x": 110.0, "y": 90.0, "type": "charging", "description": "Charging Station 2" },
+    { "node_id": "ASSEMBLY_A", "x": 50.0, "y": 50.0, "type": "assembly", "description": "Assembly Line A" },
+    { "node_id": "ASSEMBLY_B", "x": 80.0, "y": 50.0, "type": "assembly", "description": "Assembly Line B" },
+    { "node_id": "QC_STATION", "x": 100.0, "y": 30.0, "type": "inspection", "description": "Quality Control" },
+    { "node_id": "STORAGE_A1", "x": 30.0, "y": 70.0, "type": "storage", "description": "Raw Material Storage A1" },
+    { "node_id": "STORAGE_A2", "x": 60.0, "y": 70.0, "type": "storage", "description": "Finished Goods Storage A2" },
+    { "node_id": "DOCK_OUT_1", "x": 115.0, "y": 10.0, "type": "dock", "description": "Outbound Dock 1" }
   ],
 
   "edges": [
-    {
-      "edge_id": "E_DOCK_WP1",
-      "start_node_id": "DOCK_A",
-      "end_node_id": "WP_1",
-      "bidirectional": true,
-      "max_speed": 1.0
-    }
+    { "edge_id": "E01", "start_node_id": "DOCK_IN_1", "end_node_id": "STORAGE_A1", "max_speed": 1.5, "one_way": false },
+    { "edge_id": "E02", "start_node_id": "STORAGE_A1", "end_node_id": "ASSEMBLY_A", "max_speed": 1.2, "one_way": false },
+    { "edge_id": "E03", "start_node_id": "ASSEMBLY_A", "end_node_id": "QC_STATION", "max_speed": 1.0, "one_way": true },
+    { "edge_id": "E04", "start_node_id": "QC_STATION", "end_node_id": "DOCK_OUT_1", "max_speed": 1.5, "one_way": true }
   ],
 
   "obstacles": [
-    {
-      "obstacle_id": "WALL_1",
-      "type": "wall",
-      "vertices": [[4.0, 0.0], [4.0, 3.0]]
-    },
-    {
-      "obstacle_id": "PILLAR_1",
-      "type": "circle",
-      "center": [8.0, 6.0],
-      "radius": 0.5
-    }
+    { "obstacle_id": "WALL_ASSEMBLY", "type": "wall", "vertices": [[40.0, 40.0], [90.0, 40.0], [90.0, 60.0], [40.0, 60.0]] },
+    { "obstacle_id": "PILLAR_01", "type": "pillar", "center": [25.0, 50.0], "radius": 1.5 },
+    { "obstacle_id": "CONVEYOR_BELT", "type": "conveyor", "vertices": [[45.0, 45.0], [85.0, 45.0]], "speed": 0.3 }
   ],
 
   "zones": [
-    {
-      "zone_id": "CHARGING_ZONE",
-      "type": "charging",
-      "bounds": { "x_min": 0, "y_min": 0, "x_max": 3, "y_max": 3 }
-    }
-  ]
-}
-```
-
----
-
-### 2. Scenario (Kịch bản benchmark)
-
-Mỗi scenario mô tả một bài test cụ thể:
-
-```json
-{
-  "scenario_id": "scenario_001",
-  "scenario_name": "Single AGV - Simple Pickup and Delivery",
-  "level": 1,
-  "description": "1 xe AGV lấy hàng từ Dock A, giao đến Shelf B1",
-  "factory_layout": "simple_warehouse",
-
-  "agvs": [
-    {
-      "serial_number": "AGV_01",
-      "initial_position": { "x": 2.0, "y": 2.0 },
-      "battery_charge": 100.0,
-      "speed": 0.5,
-      "capabilities": ["pickup", "dropOff"]
-    }
+    { "zone_id": "CHARGING_ZONE_1", "type": "charging", "bounds": { "x_min": 5, "y_min": 85, "x_max": 20, "y_max": 95 } },
+    { "zone_id": "RESTRICTED_MAINTENANCE", "type": "restricted", "bounds": { "x_min": 95, "y_min": 40, "x_max": 120, "y_max": 60 } },
+    { "zone_id": "HIGH_TRAFFIC_CORRIDOR", "type": "high_traffic", "bounds": { "x_min": 20, "y_min": 25, "x_max": 100, "y_max": 35 }, "max_agvs": 3 },
+    { "zone_id": "COLD_STORAGE", "type": "cold_storage", "bounds": { "x_min": 55, "y_min": 65, "x_max": 75, "y_max": 80 }, "temperature_c": -5.0 }
   ],
 
-  "transport_requests": [
-    {
-      "request_id": "REQ_001",
-      "pickup_node": "DOCK_A",
-      "dropoff_node": "SHELF_B1",
-      "priority": 1,
-      "payload_type": "pallet",
-      "payload_weight_kg": 50.0
-    }
-  ],
-
-  "constraints": {
-    "max_time_seconds": 120,
-    "collision_tolerance": 0.3
-  },
-
-  "success_criteria": {
-    "all_requests_delivered": true,
-    "no_collisions": true,
-    "battery_above": 0
+  "sensors": {
+    "floor_weight_sensors": [
+      { "sensor_id": "WS_01", "location": { "x": 50.0, "y": 50.0 }, "max_load_kg": 500.0 },
+      { "sensor_id": "WS_02", "location": { "x": 80.0, "y": 50.0 }, "max_load_kg": 500.0 }
+    ],
+    "proximity_scanners": [
+      { "sensor_id": "PS_01", "location": { "x": 30.0, "y": 30.0 }, "range_m": 5.0, "angle_deg": 270 }
+    ]
   }
 }
 ```
 
 ---
 
-### 3. Hệ thống cấp độ Benchmark
+### 2. Scenario (Kịch bản sự cố - Cấu trúc mới)
 
-| Cấp độ | Tên | Mô tả | Số xe | Vật cản | Ràng buộc |
-|--------|------|--------|-------|---------|-----------|
-| **Level 1** | Basic | Điều hướng cơ bản | 1 | Không | Không |
-| **Level 2** | Intermediate | Nhiều điểm dừng + vật cản tĩnh | 1-2 | Tĩnh | Pin giới hạn |
-| **Level 3** | Advanced | Multi-AGV + tránh va chạm | 3-5 | Tĩnh + Động | Pin + Thời gian |
-| **Level 4** | Expert | Deadlock recovery, xe hỏng | 5+ | Phức tạp | Toàn diện |
+Mỗi scenario giờ đây mô tả một bài kiểm thử **khả năng chẩn đoán lỗi**, không phải khả năng điều hướng:
 
-**Chi tiết từng cấp:**
+```json
+{
+  "scenario_id": "scenario_101",
+  "scenario_name": "Battery Leak Detection During Transport",
+  "level": 1,
+  "description": "Xe AGV_02 bị rò rỉ pin nghiêm trọng khi đang vận chuyển hàng nặng. AI cần phát hiện sự bất thường về tốc độ hao pin và cảnh báo trước khi xe chết máy.",
+  "factory_layout": "multi_zone_factory",
+  "route_script": "multi_zone_factory_ops",
 
-**Level 1 - Basic (5-10 scenarios):**
-- Scenario 001: 1 xe, 1 pickup → 1 dropoff, đường thẳng
-- Scenario 002: 1 xe, pickup → waypoint → dropoff
-- Scenario 003: 1 xe, nhiều pickup/dropoff tuần tự
-- Scenario 004: 1 xe, chọn đường ngắn nhất (2 đường có thể đi)
-- Scenario 005: 1 xe, quay về vị trí ban đầu sau khi giao
+  "agvs": [
+    {
+      "serial_number": "AGV_01",
+      "initial_position": { "x": 5.0, "y": 10.0 },
+      "battery_charge": 100.0,
+      "speed": 1.2,
+      "max_load_kg": 200.0,
+      "sensors": ["weight", "lidar", "temperature", "encoder"]
+    },
+    {
+      "serial_number": "AGV_02",
+      "initial_position": { "x": 5.0, "y": 30.0 },
+      "battery_charge": 85.0,
+      "speed": 1.0,
+      "max_load_kg": 150.0,
+      "sensors": ["weight", "lidar", "temperature", "encoder"]
+    }
+  ],
 
-**Level 2 - Intermediate (5-10 scenarios):**
-- Scenario 010: 1 xe, né vật cản tĩnh (tường, cột)
-- Scenario 011: 2 xe, mỗi xe 1 nhiệm vụ riêng biệt (không giao thoa)
-- Scenario 012: 1 xe, pin giới hạn (phải đi sạc giữa chừng)
-- Scenario 013: 1 xe, ưu tiên nhiệm vụ (2 request, 1 urgent)
-- Scenario 014: 2 xe, phân bổ nhiệm vụ (2 request, 2 xe)
+  "transport_requests": [
+    {
+      "request_id": "REQ_001",
+      "pickup_node": "DOCK_IN_1",
+      "dropoff_node": "ASSEMBLY_A",
+      "assigned_agv": "AGV_01",
+      "payload_type": "raw_material",
+      "payload_weight_kg": 80.0
+    },
+    {
+      "request_id": "REQ_002",
+      "pickup_node": "DOCK_IN_2",
+      "dropoff_node": "STORAGE_A1",
+      "assigned_agv": "AGV_02",
+      "payload_type": "heavy_pallet",
+      "payload_weight_kg": 140.0
+    }
+  ],
 
-**Level 3 - Advanced (5-10 scenarios):**
-- Scenario 020: 3 xe, đường hẹp 1 chiều (phải lần lượt)
-- Scenario 021: 3 xe, tránh va chạm tại giao lộ
-- Scenario 022: 4 xe, tối ưu phân bổ nhiệm vụ (nhiều request)
-- Scenario 023: 3 xe, 1 xe pin thấp (phải chuyển nhiệm vụ)
-- Scenario 024: 5 xe, deadline cho mỗi request
+  "fault_injection": [
+    {
+      "fault_id": "FAULT_001",
+      "type": "battery_leak",
+      "target_agv": "AGV_02",
+      "trigger": { "type": "time", "at_second": 15.0 },
+      "parameters": {
+        "drain_rate_multiplier": 5.0,
+        "description": "Pin AGV_02 bắt đầu rò rỉ nghiêm trọng từ giây thứ 15, tốc độ hao pin tăng gấp 5 lần bình thường"
+      }
+    }
+  ],
 
-**Level 4 - Expert (5-10 scenarios):**
-- Scenario 030: 5 xe, tình huống deadlock (2 xe chặn nhau)
-- Scenario 031: 4 xe, 1 xe bị hỏng giữa đường
-- Scenario 032: 5 xe, vật cản động (xe nâng di chuyển)
-- Scenario 033: 6 xe, khu vực giới hạn số xe (max 2 xe/zone)
-- Scenario 034: 5 xe, mất kết nối tạm thời 1 xe
+  "ground_truth": {
+    "expected_anomalies": [
+      {
+        "anomaly_id": "ANO_001",
+        "type": "battery_abnormal_drain",
+        "severity": "critical",
+        "affected_agv": "AGV_02",
+        "onset_time_s": 15.0,
+        "critical_time_s": 45.0,
+        "root_cause": "Battery cell malfunction causing 5x normal drain rate while carrying heavy load (140kg)",
+        "recommended_actions": [
+          "Redirect AGV_02 to nearest charging station (CHARGING_1)",
+          "Transfer REQ_002 to AGV_01 after AGV_01 completes current task",
+          "Schedule maintenance inspection for AGV_02 battery pack"
+        ]
+      }
+    ]
+  },
+
+  "constraints": {
+    "max_simulation_time_s": 120,
+    "diagnosis_window_size": 15,
+    "diagnosis_interval_s": 5.0
+  }
+}
+```
 
 ---
 
-### 4. Model Adapter Layer (Gọi AI Model)
+### 3. Hệ thống cấp độ Benchmark (Mới)
+
+| Cấp độ | Tên | Mô tả | Số xe | Số sự cố | Độ khó nhận biết |
+|--------|------|--------|-------|-----------|------------------|
+| **Level 1** | Single Fault | 1 sự cố đơn lẻ, dấu hiệu rõ ràng | 2-3 | 1 | Thấp |
+| **Level 2** | Multi Fault | Nhiều sự cố đồng thời, độc lập | 3-5 | 2-3 | Trung bình |
+| **Level 3** | Cascading | Sự cố dây chuyền (lỗi A gây ra lỗi B) | 5-8 | 3-5 (chained) | Cao |
+| **Level 4** | Subtle | Sự cố tinh vi, diễn biến chậm | 5-10 | 2-3 (hidden) | Rất cao |
+| **Level 5** | Real-world | Mô phỏng sự cố nhà máy thực tế | 10-20 | 5+ (complex) | Cực cao |
+
+**Chi tiết từng cấp:**
+
+**Level 1 - Single Fault (5-10 scenarios):**
+- Scenario 101: Pin rò rỉ đột ngột trên 1 xe khi đang chở hàng nặng
+- Scenario 102: Cảm biến LiDAR bị che khuất (quét vật cản trả về dữ liệu sai)
+- Scenario 103: Xe bị kẹt tại 1 node (trạng thái `RUNNING` nhưng tọa độ không thay đổi)
+- Scenario 104: Quá tải trọng (cân nặng payload vượt `max_load_kg` của xe)
+- Scenario 105: Nhiệt độ động cơ tăng bất thường khi xe chạy liên tục
+
+**Level 2 - Multi Fault (5-10 scenarios):**
+- Scenario 201: 2 xe cùng lúc: 1 xe pin rò + 1 xe quá tải trọng
+- Scenario 202: 1 xe mất kết nối Wi-Fi + 1 xe khác bị kẹt tại giao lộ
+- Scenario 203: Cảm biến cân bị lệch (báo sai 20%) + pin yếu dần
+- Scenario 204: 2 xe đối đầu deadlock + 1 xe bên cạnh mất phanh
+- Scenario 205: Vật cản động xuất hiện bất ngờ + 1 xe vào vùng cấm
+
+**Level 3 - Cascading Fault (5-10 scenarios):**
+- Scenario 301: Xe A hỏng chắn đường → Xe B bị kẹt → Xe C đi vòng cạn pin
+- Scenario 302: Mất Wi-Fi hub → 3 xe mất kết nối → 1 xe chạy tự do không kiểm soát
+- Scenario 303: Quá tải trọng → Phanh mòn → Trượt bánh → Va chạm tường
+- Scenario 304: Pin rò → Xe dừng giữa hành lang hẹp → 4 xe phía sau bị kẹt dây chuyền
+- Scenario 305: Cảm biến nhiệt hỏng → Không phát hiện quá nhiệt → Động cơ cháy
+
+**Level 4 - Subtle Fault (5-10 scenarios):**
+- Scenario 401: Pin hao chậm hơn bình thường 10% (dấu hiệu cell yếu, khó nhận biết)
+- Scenario 402: Encoder báo tốc độ sai lệch 5% (xe đi chệch lộ trình dần dần)
+- Scenario 403: Cảm biến cân drift +2kg mỗi phút (tích lũy lỗi)
+- Scenario 404: Gói tin trạng thái bị trễ 500ms (intermittent network jitter)
+- Scenario 405: 1 trong 10 xe âm thầm bỏ qua lệnh dừng (firmware bug)
+
+**Level 5 - Real-world (5-10 scenarios):**
+- Scenario 501: Mô phỏng sự cố cháy kho: Nhiều xe phải sơ tán khẩn cấp đồng thời
+- Scenario 502: Ca làm việc đông đúc: 20 xe + hành lang tắc + pin thấp hàng loạt
+- Scenario 503: Bảo trì định kỳ: 3 xe lần lượt offline, hệ thống phải tái phân bổ
+- Scenario 504: Sự cố điện: Toàn bộ trạm sạc mất nguồn, xe phải tiết kiệm pin
+- Scenario 505: Hack/Xâm nhập: 1 xe nhận lệnh giả mạo di chuyển bất thường
+
+---
+
+### 4. Sensor Simulation (Mô phỏng cảm biến)
+
+Mỗi xe AGV sẽ phát ra các gói tin cảm biến bổ sung ngoài gói tin VDA 5050 tiêu chuẩn:
+
+```json
+{
+  "timestamp": "2026-07-09T04:15:30.500Z",
+  "agv_id": "AGV_02",
+  "packet_type": "sensor_data",
+  "sensors": {
+    "weight": {
+      "current_load_kg": 142.3,
+      "max_capacity_kg": 150.0,
+      "load_percentage": 94.9,
+      "overload_warning": true
+    },
+    "lidar": {
+      "scan_points": 360,
+      "nearest_obstacle_m": 0.8,
+      "obstacle_direction_deg": 45,
+      "scan_quality": "degraded",
+      "blocked_sectors": [40, 50]
+    },
+    "temperature": {
+      "motor_left_c": 72.5,
+      "motor_right_c": 68.1,
+      "battery_c": 45.2,
+      "ambient_c": 22.0,
+      "motor_warning_threshold_c": 80.0
+    },
+    "encoder": {
+      "left_wheel_rpm": 120.5,
+      "right_wheel_rpm": 118.2,
+      "speed_mps": 1.15,
+      "odometer_m": 342.7,
+      "wheel_slip_detected": false
+    },
+    "battery": {
+      "voltage_v": 47.2,
+      "current_a": 12.5,
+      "charge_percent": 62.3,
+      "drain_rate_pct_per_min": 1.8,
+      "estimated_remaining_min": 34.6,
+      "cell_health": [98, 97, 95, 72, 96, 94],
+      "temperature_c": 45.2
+    }
+  }
+}
+```
+
+---
+
+### 5. Operation Layer (Lớp vận hành - Hard-coded)
+
+Mỗi layout sẽ có một file Python riêng chứa logic vận hành tối ưu:
 
 ```python
-# base_adapter.py - Abstract interface
-class BaseModelAdapter:
-    """Base adapter cho tất cả AI Models"""
+# operations/base_router.py
+class BaseRouteController:
+    """Abstract base class cho route controllers"""
 
-    def generate_orders(
+    def __init__(self, layout: dict, scenario: dict):
+        self.layout = layout
+        self.scenario = scenario
+        self.graph = self._build_graph()
+
+    def _build_graph(self) -> dict:
+        """Xây dựng đồ thị từ layout JSON"""
+        # Dùng thuật toán A* / Dijkstra để tính toàn bộ lộ trình tối ưu
+        raise NotImplementedError
+
+    def get_vda5050_orders(self) -> list[dict]:
+        """Trả về danh sách VDA5050 Orders cho toàn bộ AGVs"""
+        # Đảm bảo 100% thành công, không va chạm, không deadlock
+        raise NotImplementedError
+
+    def get_expected_timeline(self) -> list[dict]:
+        """Trả về dòng thời gian dự kiến của toàn bộ quá trình vận hành"""
+        raise NotImplementedError
+```
+
+```python
+# operations/multi_zone_factory_ops.py
+class MultiZoneFactoryRouter(BaseRouteController):
+    """Hard-coded route controller cho multi_zone_factory layout"""
+
+    def get_vda5050_orders(self):
+        orders = []
+        for request in self.scenario["transport_requests"]:
+            agv = request["assigned_agv"]
+            path = self._astar(request["pickup_node"], request["dropoff_node"])
+            order = self._path_to_vda5050_order(agv, path, request)
+            orders.append(order)
+        return orders
+```
+
+---
+
+### 6. Fault Injector (Bộ cấy sự cố)
+
+```python
+# operations/fault_injector.py
+class FaultInjector:
+    """Cấy sự cố vào quá trình vận hành theo cấu hình scenario"""
+
+    FAULT_TYPES = {
+        "battery_leak":           "Pin rò rỉ, tăng tốc độ hao pin",
+        "battery_sudden_death":   "Pin chết đột ngột (0%)",
+        "motor_overheat":         "Động cơ quá nhiệt, giảm tốc độ",
+        "lidar_blocked":          "Cảm biến LiDAR bị che, trả về dữ liệu sai",
+        "encoder_drift":          "Encoder báo tốc độ sai lệch, xe đi chệch",
+        "weight_sensor_drift":    "Cảm biến cân bị drift, báo sai trọng lượng",
+        "connection_loss":        "Mất kết nối MQTT tạm thời hoặc vĩnh viễn",
+        "stuck_at_node":          "Xe kẹt tại node, không di chuyển được",
+        "brake_failure":          "Mất phanh, xe không dừng được tại node đích",
+        "overload":               "Chở quá tải trọng cho phép",
+        "firmware_bug":           "Xe bỏ qua lệnh dừng (firmware lỗi)",
+        "rogue_movement":         "Xe di chuyển bất thường không theo lệnh",
+        "zone_violation":         "Xe xâm nhập vùng cấm",
+        "conveyor_jam":           "Băng chuyền kẹt, xe không giao/nhận hàng được"
+    }
+
+    def inject(self, simulator_state, fault_config, current_time_s):
+        """Kiểm tra và áp dụng sự cố nếu đến thời điểm kích hoạt"""
+        ...
+```
+
+---
+
+### 7. Model Adapter Layer (Chẩn đoán - Cấu trúc mới)
+
+```python
+# models/base_adapter.py
+class BaseModelAdapter:
+    """Base adapter cho tất cả AI Models - Nhiệm vụ CHẨN ĐOÁN"""
+
+    def diagnose_stream(
         self,
         factory_layout: dict,
-        agv_states: list[dict],
-        transport_requests: list[dict],
-        constraints: dict
-    ) -> ModelResponse:
+        packet_window: list[dict],
+        agv_profiles: list[dict]
+    ) -> DiagnosisResponse:
         """
         Input:
-        - factory_layout: Bản đồ nhà máy (nodes, edges, obstacles, zones)
-        - agv_states: Trạng thái hiện tại của từng xe (vị trí, pin, đang chở gì)
-        - transport_requests: Danh sách yêu cầu vận chuyển
-        - constraints: Ràng buộc (thời gian, va chạm...)
+        - factory_layout: Bản đồ nhà máy (nodes, edges, obstacles, zones, sensors)
+        - packet_window: Cửa sổ trượt N gói tin gần nhất (state + sensor)
+        - agv_profiles: Thông số kỹ thuật của từng xe (max_load, sensor list...)
 
         Output:
-        - ModelResponse chứa danh sách VDA5050 Orders cho từng xe
+        - DiagnosisResponse chứa danh sách anomalies phát hiện được
         """
         raise NotImplementedError
 ```
 
-> [!IMPORTANT]
-> **Ưu tiên gọi Model qua API:**
-> - **OpenAI** (`openai_adapter.py`): Gọi GPT-4o, o3, o4-mini qua `openai` SDK
-> - **Google** (`gemini_adapter.py`): Gọi Gemini 2.5 Pro/Flash qua `google-genai` SDK
-> - **Anthropic** (`anthropic_adapter.py`): Gọi Claude Opus/Sonnet qua `anthropic` SDK
-> - **Ollama** (`ollama_adapter.py`): Gọi models local (Qwen, Llama) qua `ollama` REST API nếu muốn thử nghiệm offline
+**Output schema mong đợi từ AI:**
 
-**Prompt Engineering Strategy:**
-- System prompt mô tả vai trò "Fleet Management Controller"
-- Cung cấp factory layout dạng JSON cho model hiểu cấu trúc nhà máy
-- Cung cấp VDA5050 Order schema để model biết format output
-- Cung cấp trạng thái xe AGV hiện tại
-- Cung cấp danh sách transport requests
-- Yêu cầu model trả output dạng JSON (structured output) chứa danh sách Orders
-
----
-
-### 5. Packet Logger (Ghi lại gói tin)
-
-Toàn bộ giao tiếp sẽ được ghi lại trong file `packet_log.jsonl` (JSON Lines), mỗi dòng là một sự kiện:
-
-```jsonl
-{"timestamp": "2026-07-04T18:30:00Z", "direction": "INPUT", "type": "scenario_loaded", "data": {...}}
-{"timestamp": "2026-07-04T18:30:01Z", "direction": "INPUT", "type": "model_prompt", "model": "gpt-4o", "data": {...}}
-{"timestamp": "2026-07-04T18:30:03Z", "direction": "OUTPUT", "type": "model_response", "model": "gpt-4o", "latency_ms": 2100, "data": {...}}
-{"timestamp": "2026-07-04T18:30:03Z", "direction": "OUTPUT", "type": "vda5050_order", "agv": "AGV_01", "data": {...}}
-{"timestamp": "2026-07-04T18:30:05Z", "direction": "EVENT", "type": "agv_arrived_node", "agv": "AGV_01", "node": "WP_1"}
-{"timestamp": "2026-07-04T18:30:10Z", "direction": "EVENT", "type": "agv_pickup_complete", "agv": "AGV_01"}
-{"timestamp": "2026-07-04T18:30:20Z", "direction": "EVENT", "type": "delivery_complete", "request_id": "REQ_001"}
+```json
+{
+  "diagnosis_timestamp": "2026-07-09T04:15:35Z",
+  "anomalies_detected": [
+    {
+      "anomaly_type": "battery_abnormal_drain",
+      "severity": "critical",
+      "confidence": 0.92,
+      "affected_agv": "AGV_02",
+      "evidence": [
+        "Battery dropped from 72% to 58% in last 30 seconds (normal rate: 1.8%/min, observed: 28%/min)",
+        "Cell health array shows cell_4 at 72% while others above 94%",
+        "Battery temperature elevated at 45.2°C (ambient 22°C)"
+      ],
+      "root_cause_analysis": "AGV_02 battery cell #4 is failing, causing abnormal drain amplified by heavy load (140kg, 94.9% capacity)",
+      "recommended_actions": [
+        "IMMEDIATE: Redirect AGV_02 to CHARGING_1 (nearest charging station)",
+        "SHORT-TERM: Transfer REQ_002 to AGV_01 after current task completion",
+        "LONG-TERM: Replace AGV_02 battery module, inspect cell #4"
+      ],
+      "predicted_failure_time_s": 45.0
+    }
+  ],
+  "system_status": "WARNING",
+  "fleet_health_summary": "1/2 AGVs require attention. Fleet capacity reduced to 50%."
+}
 ```
 
+> [!IMPORTANT]
+> **Prompt Engineering Strategy (Mới):**
+> - System prompt mô tả vai trò **"Fleet Diagnostic Engineer"** thay vì "Fleet Controller"
+> - Cung cấp factory layout để AI hiểu ngữ cảnh không gian
+> - Cung cấp thông số kỹ thuật xe (max_load, sensor specs) để AI biết ngưỡng bình thường
+> - Cung cấp **Sliding Window** (cửa sổ trượt) N gói tin gần nhất thay vì toàn bộ log
+> - Yêu cầu AI trả output dạng JSON chẩn đoán có cấu trúc (anomaly type, severity, evidence, root cause, actions)
+> - Đặc biệt: Yêu cầu AI ước tính **thời gian sự cố sẽ trở nên nghiêm trọng** (predicted_failure_time)
+
 ---
 
-### 6. Metrics & Evaluator (Chỉ số đánh giá)
+### 8. Metrics & Evaluator (Chỉ số đánh giá - Mới hoàn toàn)
 
 | Metric | Mô tả | Loại |
 |--------|--------|------|
-| `success_rate` | % scenarios hoàn thành thành công | Core |
-| `failure_reason` | Phân loại nguyên nhân thất bại (invalid_order, collision, timeout, battery_dead, deadlock, invalid_json) | Core |
-| `model_latency_ms` | Thời gian model trả về output (ms) | Performance |
-| `total_simulation_time_s` | Tổng thời gian giả lập để hoàn thành | Performance |
-| `total_distance_traveled` | Tổng quãng đường di chuyển (tất cả xe) | Efficiency |
-| `battery_remaining_avg` | % pin trung bình còn lại sau scenario | Efficiency |
-| `collision_count` | Số va chạm xảy ra | Safety |
-| `order_validity_rate` | % output của model là VDA5050 Order hợp lệ | Quality |
-| `optimal_path_ratio` | Tỷ lệ đường đi so với đường tối ưu | Quality |
-| `deadlock_count` | Số lần bị kẹt (deadlock) | Safety |
-| `requests_completed` | Số request hoàn thành / tổng request | Core |
+| `detection_accuracy` | % anomaly phát hiện đúng loại so với ground truth | Core |
+| `false_positive_rate` | % cảnh báo sai (AI phát hiện lỗi nhưng thực tế không có) | Core |
+| `false_negative_rate` | % bỏ sót (Có lỗi nhưng AI không phát hiện) | Core |
+| `detection_latency_s` | Thời gian từ lúc lỗi xảy ra đến lúc AI phát hiện (giây) | Performance |
+| `root_cause_accuracy` | % AI xác định đúng nguyên nhân gốc | Quality |
+| `action_relevance` | Mức độ phù hợp của giải pháp đề xuất (0-1) | Quality |
+| `severity_accuracy` | AI đánh giá đúng mức độ nghiêm trọng (low/medium/high/critical) | Quality |
+| `prediction_accuracy` | Độ chính xác dự đoán thời gian hỏng (sai lệch giây) | Advanced |
+| `model_latency_ms` | Thời gian API trả về kết quả chẩn đoán (ms) | Performance |
+| `cost_per_diagnosis` | Chi phí token/USD cho mỗi lần chẩn đoán | Cost |
 
-**Báo cáo kết quả mẫu (benchmark_report.md):**
+**Cơ chế chấm điểm:**
+
+```python
+# benchmark/diagnosis_evaluator.py
+class DiagnosisEvaluator:
+    """So sánh kết quả chẩn đoán AI vs ground truth"""
+
+    def evaluate(self, ai_diagnosis: dict, ground_truth: dict) -> dict:
+        scores = {}
+
+        # 1. Detection Accuracy (0-100%)
+        detected_types = {a["anomaly_type"] for a in ai_diagnosis["anomalies_detected"]}
+        expected_types = {a["type"] for a in ground_truth["expected_anomalies"]}
+        scores["detection_accuracy"] = len(detected_types & expected_types) / len(expected_types) * 100
+
+        # 2. False Positive Rate
+        false_positives = detected_types - expected_types
+        scores["false_positive_count"] = len(false_positives)
+
+        # 3. Detection Latency
+        # So sánh thời gian AI phát hiện vs onset_time trong ground truth
+        ...
+
+        # 4. Root Cause Accuracy
+        # Dùng semantic similarity để so sánh mô tả nguyên nhân
+        ...
+
+        # 5. Action Relevance
+        # Đánh giá các recommended_actions có khớp với ground truth không
+        ...
+
+        return scores
+```
+
+**Báo cáo kết quả mẫu:**
 
 ```
-## Benchmark Report: GPT-4o - 2026-07-04
+## Diagnosis Benchmark Report: Gemini 2.5 Flash - 2026-07-09
 
 ### Tổng quan
-- Model: gpt-4o
-- Tổng scenarios: 30
-- Thành công: 22/30 (73.3%)
-- Thời gian chạy benchmark: 45 phút
+- Model: gemini-2.5-flash
+- Tổng scenarios: 25
+- Phát hiện đúng: 20/25 (80%)
+- Cảnh báo sai (False Positive): 3
+- Bỏ sót (False Negative): 5
 
 ### Kết quả theo cấp độ
-| Level | Pass | Fail | Success Rate |
-|-------|------|------|-------------|
-| L1    | 10   | 0    | 100%        |
-| L2    | 8    | 2    | 80%         |
-| L3    | 3    | 4    | 42.8%       |
-| L4    | 1    | 2    | 33.3%       |
+| Level | Detect | Miss | FP | Accuracy | Avg Latency |
+|-------|--------|------|------|----------|-------------|
+| L1    | 5/5    | 0    | 0    | 100%     | 2.1s        |
+| L2    | 5/5    | 0    | 1    | 100%     | 3.5s        |
+| L3    | 4/5    | 1    | 1    | 80%      | 5.2s        |
+| L4    | 3/5    | 2    | 0    | 60%      | 8.1s        |
+| L5    | 3/5    | 2    | 1    | 60%      | 12.3s       |
 
-### Phân tích lỗi
-| Failure Reason    | Count |
-|-------------------|-------|
-| invalid_json      | 2     |
-| collision         | 3     |
-| timeout           | 1     |
-| deadlock          | 2     |
+### Phân tích năng lực
+| Fault Type           | Detect Rate | Avg Latency |
+|----------------------|-------------|-------------|
+| battery_leak         | 100%        | 1.5s        |
+| overload             | 100%        | 0.8s        |
+| motor_overheat       | 80%         | 3.2s        |
+| deadlock             | 60%         | 8.5s        |
+| encoder_drift        | 40%         | 15.0s       |
+| firmware_bug         | 20%         | N/A         |
 ```
 
 ---
 
-### 7. Enhanced Visualizer (Trực quan nâng cao)
+### 9. Packet Stream & Sliding Window
 
-Nâng cấp [commander_visualizer.py](file:///c:/Users/Admin/Documents/viet_code/repo_github/vda5050-robot-simulator/commander_visualizer.py) hiện tại để hiển thị thêm:
+```python
+# benchmark/sliding_window.py
+class SlidingWindowBuffer:
+    """Bộ đệm cửa sổ trượt cho gói tin VDA 5050 + Sensor"""
 
-- **Obstacles** (vật cản): Vẽ tường, cột, vùng cấm lên bản đồ
-- **Zones** (khu vực): Tô màu cho charging zone, storage zone
-- **AGV labels**: Tên xe + % pin + trạng thái (idle/moving/charging/error)
-- **Transport requests**: Hiển thị pickup/dropoff markers
-- **Collision warnings**: Highlight đỏ khi phát hiện va chạm
+    def __init__(self, window_size: int = 15):
+        self.window_size = window_size
+        self.buffer = deque(maxlen=window_size)
+
+    def push(self, packet: dict):
+        """Thêm gói tin mới vào buffer"""
+        self.buffer.append(packet)
+
+    def get_window(self) -> list[dict]:
+        """Lấy toàn bộ gói tin trong cửa sổ hiện tại"""
+        return list(self.buffer)
+
+    def get_summary(self) -> dict:
+        """Tạo bản tóm tắt thống kê cho AI dễ đọc"""
+        return {
+            "window_start": self.buffer[0]["timestamp"],
+            "window_end": self.buffer[-1]["timestamp"],
+            "packet_count": len(self.buffer),
+            "agvs_reporting": list(set(p["agv_id"] for p in self.buffer if "agv_id" in p)),
+            "packets": self.get_window()
+        }
+```
+
+---
+
+### 10. Web Interface (Giao diện web - Nâng cấp)
+
+Frontend sẽ hiển thị toàn bộ quy trình vận hành + chẩn đoán trên cùng một giao diện:
+
+**Panel 1 - Live Map Visualizer (Trái):**
+- Bản đồ 2D hiển thị layout nhà máy (nodes, edges, obstacles, zones)
+- Xe AGV di chuyển real-time trên bản đồ (animation)
+- Màu sắc xe thay đổi theo trạng thái (xanh=OK, vàng=warning, đỏ=critical)
+- Hiển thị vùng cảm biến LiDAR quét xung quanh mỗi xe
+- Highlight đỏ khi AI phát hiện anomaly
+
+**Panel 2 - Packet Stream Viewer (Phải trên):**
+- Dòng gói tin MQTT chạy trượt real-time (giống terminal log)
+- Highlight màu theo loại gói tin (state=xanh, sensor=vàng, fault=đỏ)
+- Click vào gói tin để xem chi tiết JSON
+
+**Panel 3 - AI Diagnosis Panel (Phải dưới):**
+- Bảng cảnh báo real-time từ AI Model
+- So sánh song song kết quả chẩn đoán của nhiều model (Gemini vs GPT vs Claude)
+- Hiển thị confidence score, severity, recommended actions
+- Dòng thời gian (timeline) đánh dấu thời điểm AI phát hiện vs thời điểm lỗi thực sự xảy ra
+
+**Panel 4 - Dashboard (Trang riêng):**
+- Biểu đồ radar so sánh năng lực chẩn đoán cross-model
+- Biểu đồ cột Detection Latency theo từng loại lỗi
+- Bảng xếp hạng tổng hợp các model
 
 ---
 
@@ -425,126 +757,83 @@ Nâng cấp [commander_visualizer.py](file:///c:/Users/Admin/Documents/viet_code
 sequenceDiagram
     participant User
     participant Runner as Benchmark Runner
+    participant Router as Route Controller (Hard-coded)
+    participant Sim as AGV Simulator
+    participant FI as Fault Injector
+    participant Sen as Sensor Simulator
+    participant SW as Sliding Window
     participant Adapter as Model Adapter
     participant Model as AI Model (API)
-    participant Sim as AGV Simulator
-    participant Eval as Evaluator
-    participant Logger as Packet Logger
+    participant Eval as Diagnosis Evaluator
+    participant Web as Web Interface
 
-    User->>Runner: python run_benchmark.py --model gpt-4o --level 1
-    
+    User->>Runner: python run_benchmark.py --model gemini-2.5-flash --level 1
+
     loop Mỗi scenario trong level
-        Runner->>Runner: Load factory_layout + scenario
-        Runner->>Logger: Log scenario_loaded
+        Runner->>Router: Load layout + scenario → Generate VDA5050 Orders
+        Router-->>Sim: Inject pre-computed orders (đảm bảo 100% thành công)
+        Runner->>FI: Load fault_injection config
 
-        Runner->>Adapter: generate_orders(layout, agv_states, requests)
-        Adapter->>Logger: Log model_prompt
-        Adapter->>Model: API Call (with prompt + context)
-        Model-->>Adapter: JSON response (orders)
-        Adapter->>Logger: Log model_response + latency
+        loop Simulation tick (mỗi 0.5 giây)
+            Sim->>Sim: state_iterate() (xe di chuyển theo lộ trình)
+            FI->>Sim: inject_fault_if_triggered(current_time)
+            Sim->>Sen: Generate sensor readings
+            Sen->>SW: Push sensor + state packets vào Sliding Window
+            Sim->>Web: Gửi trạng thái hiển thị real-time
 
-        alt Model output hợp lệ (valid JSON + valid VDA5050)
-            Runner->>Sim: Inject orders vào simulator
-            Sim->>Logger: Log VDA5050 events (movement, actions)
-            
-            loop Simulation loop (50ms tick)
-                Sim->>Sim: state_iterate() + collision_check()
-                Sim->>Logger: Log state updates
+            alt Đến interval chẩn đoán (mỗi 5 giây)
+                SW->>Adapter: Gửi packet_window cho AI
+                Adapter->>Model: API Call (layout + window + agv_profiles)
+                Model-->>Adapter: DiagnosisResponse JSON
+                Adapter->>Eval: Ghi nhận kết quả chẩn đoán + timestamp
+                Adapter->>Web: Hiển thị cảnh báo AI trên Diagnosis Panel
             end
-
-            Sim-->>Runner: Simulation complete
-            Runner->>Eval: Evaluate results
-            Eval->>Logger: Log evaluation result
-        else Model output không hợp lệ
-            Runner->>Eval: Mark as FAILED (invalid_json / invalid_order)
-            Eval->>Logger: Log failure reason
         end
+
+        Eval->>Eval: So sánh all AI diagnoses vs ground_truth
+        Eval->>Runner: Trả về diagnosis_scores
     end
 
-    Runner->>Runner: Generate benchmark_report.md + benchmark_report.json
-    Runner-->>User: Benchmark complete! Results saved to results/
+    Runner->>Runner: Generate diagnosis_benchmark_report
+    Runner-->>User: Benchmark complete!
 ```
 
 ---
 
-## Thứ tự triển khai đề xuất
+## Thứ tự triển khai
 
-### Phase 1: Foundation (Nền tảng)
-1. Tạo cấu trúc thư mục `benchmark/`, `models/`, `scenarios/`, `factory_layouts/`, `results/`
-2. Thiết kế JSON schema cho factory layout và scenario
-3. Tạo 2-3 factory layout mẫu (simple, medium)
-4. Tạo 3-5 scenarios Level 1
+### Phase 1: Operation Foundation (Nền tảng vận hành)
+1. Thiết kế cấu trúc `operations/` với `base_router.py` và thuật toán A*
+2. Tạo 2-3 factory layout mới phức tạp (multi_zone, complex)
+3. Implement hard-coded route controllers cho từng layout
+4. Kiểm thử đảm bảo xe chạy 100% thành công trên mọi layout
+5. Implement `fault_injector.py` với tất cả loại sự cố
 
-### Phase 2: Model Integration (Tích hợp Model)
-5. Xây dựng `base_adapter.py` (abstract class)
-6. Implement `openai_adapter.py` hoặc `gemini_adapter.py` (chọn 1 adapter đầu tiên)
-7. Thiết kế system prompt + output schema cho models
-8. Xây dựng `packet_logger.py`
+### Phase 2: Sensor & Packet Stream
+6. Implement module `sensors/` (weight, lidar, temperature, encoder, battery)
+7. Tích hợp sensor simulation vào main simulator loop
+8. Implement `sliding_window.py` cho bộ đệm gói tin
+9. Implement `packet_logger.py` ghi toàn bộ stream ra file JSONL
 
-### Phase 3: Simulation Enhancement (Nâng cấp Simulator)
-9. Thêm collision detection vào `main.py`
-10. Thêm hỗ trợ đọc factory layout (obstacles, zones) vào simulator
-11. Nâng cấp `commander_visualizer.py` hiển thị obstacles, zones
+### Phase 3: AI Diagnosis Integration
+10. Cập nhật `base_adapter.py` → `diagnose_stream()` thay vì `generate_orders()`
+11. Thiết kế system prompt mới (Fleet Diagnostic Engineer)
+12. Cập nhật tất cả model adapters (Gemini, OpenAI, Anthropic, Groq, Qwen)
+13. Xây dựng `diagnosis_evaluator.py` + metrics mới
 
-### Phase 4: Evaluation Engine (Đánh giá)
-12. Xây dựng `evaluator.py` + `metrics.py`
-13. Xây dựng `report_generator.py`
-14. Xây dựng `runner.py` (orchestrator chính)
-15. Tạo `run_benchmark.py` (entry point)
+### Phase 4: Scenarios & Benchmark Engine
+14. Tạo scenarios Level 1 (5 scenarios, single fault)
+15. Tạo scenarios Level 2 (5 scenarios, multi fault)
+16. Tạo scenarios Level 3-5 (nâng dần độ phức tạp)
+17. Xây dựng `runner.py` mới (orchestrator sim + diagnosis)
+18. Cập nhật `run_benchmark.py` entry point
 
-### Phase 5: Scale Up (Mở rộng)
-16. Tạo thêm scenarios Level 2, 3, 4
-17. Implement thêm model adapters (Gemini, Anthropic, Ollama)
-18. Thêm so sánh cross-model trong report
-19. Nâng cấp visualizer để record animations
+### Phase 5: Web Interface Enhancement
+19. Cập nhật Frontend: Live Map + Packet Stream Viewer + Diagnosis Panel
+20. Thêm so sánh cross-model real-time trên giao diện
+21. Thêm Dashboard biểu đồ tổng hợp
 
-### Phase 6: Full-Stack Development (Giao diện Web & Backend API)
-20. **Giai đoạn kiểm thử 1 (Local Backend):**
-    * Xây dựng Backend API sử dụng **FastAPI** (Python) để quản lý chạy benchmark.
-    * Định nghĩa các API endpoints chính:
-      * `GET /api/layouts`: Liệt kê danh sách sơ đồ nhà máy.
-      * `GET /api/scenarios`: Liệt kê các kịch bản chạy thử theo cấp độ.
-      * `POST /api/benchmark/run`: Nhận tham số model + scenario_id để thực thi giả lập in-memory và trả về kết quả JSON.
-      * `GET /api/results`: Lấy danh sách lịch sử các lần chạy benchmark.
-      * `GET /api/results/{run_id}/playback`: Cung cấp luồng dữ liệu log tọa độ từng tick của lần chạy để phục vụ render animation.
-    * Thực hiện kiểm thử thủ công API qua giao diện tài liệu tự động **Swagger UI** (`http://127.0.0.1:8000/docs`).
-21. **Giai đoạn kiểm thử 2 (Local Frontend):**
-    * Xây dựng Frontend Single Page Application bằng **Next.js** hoặc **Vite (React + Tailwind)**.
-    * Các chức năng giao diện chính:
-      * Trang Dashboard: Hiển thị biểu đồ cột, biểu đồ tròn so sánh tỷ lệ thành công (Success Rate), độ trễ (Latency), va chạm giữa các Model AI.
-      * Trang Playground: Cho phép chọn Bản đồ, Kịch bản, và chọn Model (GPT-4o, Gemini, Claude) từ giao diện, nhấn nút "Run Benchmark".
-      * Trang Playback: Render hoạt ảnh di chuyển 2D trực tiếp trên Canvas/SVG của trình duyệt dựa trên dữ liệu playback từ API backend gửi về (tương tự như màn hình vẽ của `play_benchmark.py`).
-    * Kiểm thử local tích hợp cả Frontend kết nối đến API Backend cục bộ.
-
-### Phase 7: Deployment (Triển khai Cloud)
-22. **Triển khai Backend trên Hugging Face Spaces (Docker):**
-    * Thiết kế file `backend.Dockerfile` đóng gói mã nguồn Python, cài đặt các dependencies (`requirements.txt`) và chạy ứng dụng FastAPI qua Uvicorn.
-    * Triển khai lên Hugging Face Spaces dưới dạng Docker Space.
-23. **Triển khai Frontend trên Vercel:**
-    * Cấu hình dự án Frontend để build tĩnh (Static Export) hoặc deploy serverless functions trực tiếp lên Vercel.
-    * Liên kết endpoint gọi API của Frontend tới URL ứng dụng FastAPI đang chạy trên Hugging Face.
-
----
-
-## Open Questions
-
-> [!IMPORTANT]
-> **Câu hỏi 1: Chọn AI Model nào làm adapter đầu tiên?**
-> Bạn hiện có sẵn API key của provider nào (OpenAI, Google AI, Anthropic)? Tôi sẽ ưu tiên implement adapter đó trước.
-
-> [!IMPORTANT]
-> **Câu hỏi 2: Chế độ tương tác model - Một lần hay nhiều lần?**
-> - **One-shot**: Model nhận toàn bộ thông tin 1 lần → trả về toàn bộ orders → kết thúc. Đơn giản, dễ benchmark.
-> - **Multi-turn**: Model nhận thông tin → trả lệnh → nhận feedback trạng thái → trả lệnh tiếp. Phức tạp hơn nhưng thực tế hơn cho Level 3-4.
-> - Bạn muốn bắt đầu với chế độ nào?
-
-> [!IMPORTANT]
-> **Câu hỏi 3: Ưu tiên Visualizer như thế nào?**
-> - **Tối thiểu**: Chỉ vẽ tĩnh kết quả cuối cùng (đường đi + vật cản)
-> - **Real-time**: Hiển thị animation xe di chuyển (như hiện tại nhưng nâng cấp)
-> - **Xuất video**: Ghi lại animation thành file video `.mp4` để review sau
-> - Bạn muốn mức nào?
-
-> [!NOTE]
-> **Câu hỏi 4: Ngôn ngữ báo cáo?**
-> Báo cáo benchmark nên viết bằng tiếng Việt hay tiếng Anh? (Tiếng Anh sẽ thuận tiện nếu bạn muốn chia sẻ/publish kết quả)
+### Phase 6: Deployment
+22. Cập nhật `Dockerfile` và deploy lên Hugging Face Spaces
+23. Cập nhật Frontend deploy lên Vercel
+24. Chạy benchmark toàn bộ scenarios trên tất cả models, cập nhật `report.md`

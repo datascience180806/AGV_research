@@ -1,0 +1,75 @@
+{
+  "scenario_id": "scenario_101",
+  "scenario_name": "Battery Leak Detection During Transport",
+  "level": 1,
+  "description": "AGV_02 suffers a severe battery leak during transport of a heavy load. The model must detect the abnormal battery discharge rate and diagnose it before the vehicle drops below critical power.",
+  "factory_layout": "multi_zone_factory",
+  "route_script": "multi_zone_factory_ops",
+  "agvs": [
+    {
+      "serial_number": "AGV_01",
+      "initial_position": { "x": 10.0, "y": 10.0 },
+      "battery_charge": 100.0,
+      "speed": 0.06,
+      "capabilities": ["pickup", "dropOff"]
+    },
+    {
+      "serial_number": "AGV_02",
+      "initial_position": { "x": 10.0, "y": 30.0 },
+      "battery_charge": 85.0,
+      "speed": 0.05,
+      "capabilities": ["pickup", "dropOff"]
+    }
+  ],
+  "transport_requests": [
+    {
+      "request_id": "REQ_001",
+      "pickup_node": "DOCK_IN_1",
+      "dropoff_node": "STORAGE_A1",
+      "assigned_agv": "AGV_01",
+      "payload_type": "raw_material",
+      "payload_weight_kg": 80.0
+    },
+    {
+      "request_id": "REQ_002",
+      "pickup_node": "DOCK_IN_2",
+      "dropoff_node": "ASSEMBLY_B",
+      "assigned_agv": "AGV_02",
+      "payload_type": "heavy_pallet",
+      "payload_weight_kg": 140.0
+    }
+  ],
+  "fault_injection": [
+    {
+      "fault_id": "FAULT_001",
+      "type": "battery_leak",
+      "target_agv": "AGV_02",
+      "trigger": { "type": "time", "at_second": 15.0 },
+      "parameters": {
+        "drain_rate_multiplier": 8.0,
+        "description": "AGV_02 battery starts draining 8 times faster due to cell leakage starting at second 15"
+      }
+    }
+  ],
+  "ground_truth": {
+    "expected_anomalies": [
+      {
+        "type": "battery_abnormal_drain",
+        "severity": "critical",
+        "affected_agv": "AGV_02",
+        "onset_time_s": 15.0,
+        "critical_time_s": 45.0,
+        "root_cause": "Battery cell leak or pack failure under heavy load",
+        "recommended_actions": [
+          "Redirect AGV_02 to nearest charging station CHARGING_2",
+          "Schedule maintenance inspection for AGV_02"
+        ]
+      }
+    ]
+  },
+  "constraints": {
+    "max_simulation_time_s": 120,
+    "diagnosis_window_size": 15,
+    "diagnosis_interval_s": 15.0
+  }
+}

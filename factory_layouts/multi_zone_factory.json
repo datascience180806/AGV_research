@@ -1,0 +1,42 @@
+{
+  "layout_id": "multi_zone_factory",
+  "layout_name": "Multi-Zone Manufacturing Factory",
+  "map_id": "factory_01",
+  "dimensions": { "width": 120.0, "height": 100.0 },
+
+  "nodes": [
+    { "node_id": "DOCK_IN_1", "x": 10.0, "y": 10.0, "type": "dock", "description": "Inbound Dock 1" },
+    { "node_id": "DOCK_IN_2", "x": 10.0, "y": 30.0, "type": "dock", "description": "Inbound Dock 2" },
+    { "node_id": "CHARGING_1", "x": 10.0, "y": 90.0, "type": "charging", "description": "Charging Station 1" },
+    { "node_id": "CHARGING_2", "x": 110.0, "y": 90.0, "type": "charging", "description": "Charging Station 2" },
+    { "node_id": "ASSEMBLY_A", "x": 50.0, "y": 50.0, "type": "assembly", "description": "Assembly Line A" },
+    { "node_id": "ASSEMBLY_B", "x": 80.0, "y": 50.0, "type": "assembly", "description": "Assembly Line B" },
+    { "node_id": "QC_STATION", "x": 100.0, "y": 30.0, "type": "inspection", "description": "Quality Control" },
+    { "node_id": "STORAGE_A1", "x": 30.0, "y": 70.0, "type": "storage", "description": "Raw Material Storage A1" },
+    { "node_id": "STORAGE_A2", "x": 60.0, "y": 70.0, "type": "storage", "description": "Finished Goods Storage A2" },
+    { "node_id": "DOCK_OUT_1", "x": 110.0, "y": 10.0, "type": "dock", "description": "Outbound Dock 1" }
+  ],
+
+  "edges": [
+    { "edge_id": "E01", "start_node_id": "DOCK_IN_1", "end_node_id": "STORAGE_A1", "max_speed": 1.5 },
+    { "edge_id": "E02", "start_node_id": "STORAGE_A1", "end_node_id": "ASSEMBLY_A", "max_speed": 1.2 },
+    { "edge_id": "E03", "start_node_id": "ASSEMBLY_A", "end_node_id": "QC_STATION", "max_speed": 1.0 },
+    { "edge_id": "E04", "start_node_id": "QC_STATION", "end_node_id": "DOCK_OUT_1", "max_speed": 1.5 },
+    { "edge_id": "E05", "start_node_id": "DOCK_IN_2", "end_node_id": "ASSEMBLY_B", "max_speed": 1.5 },
+    { "edge_id": "E06", "start_node_id": "ASSEMBLY_B", "end_node_id": "STORAGE_A2", "max_speed": 1.2 },
+    { "edge_id": "E07", "start_node_id": "STORAGE_A2", "end_node_id": "QC_STATION", "max_speed": 1.2 },
+    { "edge_id": "E08", "start_node_id": "ASSEMBLY_A", "end_node_id": "CHARGING_1", "max_speed": 1.2 },
+    { "edge_id": "E09", "start_node_id": "ASSEMBLY_B", "end_node_id": "CHARGING_2", "max_speed": 1.2 }
+  ],
+
+  "obstacles": [
+    { "obstacle_id": "WALL_ASSEMBLY", "type": "wall", "vertices": [[40.0, 40.0], [90.0, 40.0], [90.0, 60.0], [40.0, 60.0]] },
+    { "obstacle_id": "PILLAR_01", "type": "pillar", "center": [25.0, 50.0], "radius": 1.5 }
+  ],
+
+  "zones": [
+    { "zone_id": "CHARGING_ZONE_1", "type": "charging", "bounds": { "x_min": 5, "y_min": 85, "x_max": 20, "y_max": 95 } },
+    { "zone_id": "RESTRICTED_MAINTENANCE", "type": "restricted", "bounds": { "x_min": 95, "y_min": 40, "x_max": 120, "y_max": 60 } },
+    { "zone_id": "HIGH_TRAFFIC_CORRIDOR", "type": "high_traffic", "bounds": { "x_min": 20, "y_min": 25, "x_max": 100, "y_max": 35 } }
+  ]
+}

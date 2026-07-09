@@ -116,10 +116,10 @@
         .logs-panel {
             background-color: var(--bg-secondary);
             border-left: 1px solid var(--border-color);
-            padding: 30px 20px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
             max-height: calc(100vh - 65px);
             overflow-y: hidden;
         }
@@ -128,16 +128,77 @@
             background-color: #060911;
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 16px;
-            flex: 1;
+            padding: 12px;
+            height: 45%;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 8px;
             font-family: 'Courier New', Courier, monospace;
-            font-size: 11.5px;
+            font-size: 11px;
             scroll-behavior: smooth;
         }
+
+        .diagnosis-console {
+            background-color: #060911;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            height: 45%;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            scroll-behavior: smooth;
+        }
+
+        .diagnosis-alert {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .diagnosis-alert.warning {
+            background: rgba(245, 158, 11, 0.08);
+            border-color: rgba(245, 158, 11, 0.25);
+        }
+
+        .diag-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .diag-header.critical {
+            color: var(--accent-red);
+        }
+
+        .diag-header.warning {
+            color: var(--accent-yellow);
+        }
+
+        .diag-body {
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--text-primary);
+        }
+
+        .diag-evidence {
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.2);
+            padding: 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
 
         .packet-placeholder {
             color: var(--text-secondary);
@@ -625,13 +686,21 @@
             </div>
         </div>
 
-        <!-- Right Panel: Communication Logs -->
+        <!-- Right Panel: Communication Logs & AI Diagnosis -->
         <div class="logs-panel">
             <div class="section-title">Gói Tin Giao Tiếp (Packet Stream)</div>
             <div id="packet-console" class="packet-console">
                 <div class="packet-placeholder">
                     Chưa có gói tin nào được ghi nhận.<br>
                     Hãy nhấn "Chạy mô phỏng" để bắt đầu dòng sự kiện.
+                </div>
+            </div>
+            
+            <div class="section-title">Chẩn Đoán Sự Cố AI (AI Diagnostics)</div>
+            <div id="diagnosis-console" class="diagnosis-console">
+                <div class="packet-placeholder">
+                    Chưa có cảnh báo chẩn đoán từ AI.<br>
+                    Các báo cáo sự cố và hành động khuyến nghị sẽ xuất hiện tại đây.
                 </div>
             </div>
         </div>
@@ -976,6 +1045,15 @@
                     if (!pos) return;
                     const { cx, cy } = toCanvasCoords(pos.x, pos.y);
 
+                    // Draw LiDAR range circle
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 2.0 * scale, 0, 2 * Math.PI); // 2m virtual sensor range
+                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.18)';
+                    ctx.lineWidth = 1.2;
+                    ctx.setLineDash([3, 3]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
                     // Draw dot
                     ctx.fillStyle = '#8b5cf6';
                     ctx.beginPath();
@@ -1010,14 +1088,16 @@
                 document.getElementById("slider-progress").value = currentFrameIndex;
                 document.getElementById("display-time").innerText = `${elapsed.toFixed(1)}s / ${maxDuration.toFixed(1)}s`;
 
-                // Update live packet logs console stream
+                // Update live packet logs console stream & diagnosis console
                 updatePacketConsole(elapsed);
+                updateDiagnosisConsole(elapsed);
             } else {
                 document.getElementById("slider-progress").value = 0;
                 document.getElementById("display-time").innerText = `0.0s / 0.0s`;
                 
                 // Update live packet logs console stream with 0.0 elapsed time
                 updatePacketConsole(0.0);
+                updateDiagnosisConsole(0.0);
             }
         }
 
@@ -1128,6 +1208,78 @@
         function seekPlayback(val) {
             currentFrameIndex = parseInt(val);
             renderFrame();
+        }
+
+        function updateDiagnosisConsole(elapsedTime) {
+            const diagConsole = document.getElementById("diagnosis-console");
+            if (!playbackData || !playbackData.all_events) return;
+            
+            // Filter diagnosis events
+            const diagEvents = playbackData.all_events.filter(ev => {
+                return ev.type === "ai_diagnosis" && ev.elapsed_time <= elapsedTime;
+            });
+            
+            diagConsole.innerHTML = "";
+            
+            if (diagEvents.length === 0) {
+                diagConsole.innerHTML = `
+                    <div class="packet-placeholder">
+                        Không có sự cố nào được phát hiện tại thời điểm ${elapsedTime.toFixed(1)}s.
+                    </div>
+                `;
+                return;
+            }
+            
+            const latestEvent = diagEvents[diagEvents.length - 1];
+            const diagnosis = latestEvent.data?.diagnosis || {};
+            const anomalies = diagnosis.anomalies_detected || [];
+            
+            if (anomalies.length === 0) {
+                diagConsole.innerHTML = `
+                    <div class="packet-card" style="border-color: var(--accent-green); background: rgba(16, 185, 129, 0.03);">
+                        <div style="color: var(--accent-green); font-weight: 700;">🟢 HỆ THỐNG AN TOÀN (ALL OK)</div>
+                        <div style="font-size: 12px; margin-top: 4px; color: var(--text-secondary);">
+                            AI không phát hiện bất kỳ sự cố bất thường nào trong dòng telemetry.
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            anomalies.forEach(anomaly => {
+                const severity = anomaly.severity || "warning";
+                const badgeClass = severity === "critical" ? "critical" : "warning";
+                const alertClass = severity === "critical" ? "critical" : "warning";
+                
+                const card = document.createElement("div");
+                card.className = `diagnosis-alert ${alertClass}`;
+                
+                const evidenceLines = (anomaly.evidence || []).map(e => `• ${e}`).join("<br>");
+                const actionsLines = (anomaly.recommended_actions || []).map(a => `➔ ${a}`).join("<br>");
+                
+                card.innerHTML = `
+                    <div class="diag-header ${badgeClass}">
+                        <span>⚠️ ${anomaly.anomaly_type.toUpperCase()}</span>
+                        <span>${severity.toUpperCase()} (${(anomaly.confidence * 100).toFixed(0)}%)</span>
+                    </div>
+                    <div class="diag-body" style="margin-top: 6px;">
+                        <strong>Xe bị ảnh hưởng:</strong> ${anomaly.affected_agv}<br>
+                        <strong>Nguyên nhân gốc:</strong> ${anomaly.root_cause_analysis}<br>
+                        <strong style="margin-top: 6px; display: inline-block;">Hành động khuyến nghị:</strong><br>
+                        <span style="color: var(--accent-green); font-weight: 500;">${actionsLines}</span>
+                    </div>
+                    <div style="font-size: 11px; margin-top: 4px;">
+                        <strong>Dự đoán hỏng sau:</strong> ${anomaly.predicted_failure_time_s?.toFixed(1) || "-"} giây
+                    </div>
+                    <div class="diag-evidence" style="margin-top: 6px;">
+                        <strong>Bằng chứng chẩn đoán:</strong><br>
+                        ${evidenceLines}
+                    </div>
+                `;
+                diagConsole.appendChild(card);
+            });
+            
+            diagConsole.scrollTop = diagConsole.scrollHeight;
         }
     </script>
 </body>

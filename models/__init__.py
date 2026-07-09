@@ -1,4 +1,4 @@
-from models.base_adapter import BaseModelAdapter, ModelResponse
+from models.base_adapter import BaseModelAdapter, ModelResponse, ModelDiagnosisResponse
 from models.gemini_adapter import GeminiModelAdapter
 from models.huggingface_adapter import HuggingFaceModelAdapter
 from models.openrouter_adapter import OpenRouterModelAdapter

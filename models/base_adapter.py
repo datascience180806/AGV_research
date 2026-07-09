@@ -3,10 +3,19 @@ from dataclasses import dataclass
 
 @dataclass
 class ModelResponse:
-    """Đầu ra chuẩn hóa từ AI Model"""
+    """Đầu ra chuẩn hóa từ AI Model cho điều khiển"""
     status: str  # "SUCCESS" hoặc "FAILED"
     orders: Dict[str, Any]  # Key: serial_number, Value: VDA5050 Order dict
     raw_response: str  # Phản hồi thô của model
+    latency_ms: float  # Thời gian gọi API (ms)
+    error_message: Optional[str] = None
+
+@dataclass
+class ModelDiagnosisResponse:
+    """Đầu ra chuẩn hóa từ AI Model cho chẩn đoán lỗi"""
+    status: str  # "SUCCESS" hoặc "FAILED"
+    diagnosis: Dict[str, Any]  # Kết quả JSON chẩn đoán từ model
+    raw_response: str  # Phản hồi thô
     latency_ms: float  # Thời gian gọi API (ms)
     error_message: Optional[str] = None
 
@@ -23,16 +32,16 @@ class BaseModelAdapter:
         transport_requests: List[Dict[str, Any]],
         constraints: Dict[str, Any]
     ) -> ModelResponse:
-        """
-        Gửi ngữ cảnh kịch bản cho Model và yêu cầu trả về danh sách VDA5050 Orders cho các xe.
-
-        Args:
-            factory_layout: Bản đồ nhà máy (nodes, edges, obstacles, zones)
-            agv_states: Trạng thái hiện tại của tất cả AGVs
-            transport_requests: Các đơn hàng vận chuyển cần xử lý
-            constraints: Ràng buộc kịch bản (max_time, collision_tolerance...)
-
-        Returns:
-            ModelResponse: Đối tượng chứa chỉ thị di chuyển dạng VDA5050 và thông số hiệu năng
-        """
         raise NotImplementedError("Hãy override phương thức generate_orders() trong class adapter con.")
+
+    def diagnose_stream(
+        self,
+        factory_layout: Dict[str, Any],
+        packet_window: List[Dict[str, Any]],
+        agv_profiles: List[Dict[str, Any]]
+    ) -> ModelDiagnosisResponse:
+        """
+        Gửi luồng gói tin của xe AGV cho Model để chẩn đoán sự cố sớm.
+        """
+        raise NotImplementedError("Hãy override phương thức diagnose_stream() trong class adapter con.")
+

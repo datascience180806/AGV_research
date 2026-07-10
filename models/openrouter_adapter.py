@@ -8,7 +8,7 @@ from models.base_adapter import BaseModelAdapter, ModelResponse
 class OpenRouterModelAdapter(BaseModelAdapter):
     """Adapter cho các LLMs chạy qua OpenRouter API (hỗ trợ các model miễn phí)"""
     
-    def __init__(self, api_key: Optional[str] = None, model_name: str = "qwen/qwen-2.5-coder-32b:free"):
+    def __init__(self, api_key: Optional[str] = None, model_name: str = "qwen/qwen-2.5-coder-32b-instruct"):
         # Nạp API key từ môi trường nếu không truyền vào
         if not api_key:
             from dotenv import load_dotenv
